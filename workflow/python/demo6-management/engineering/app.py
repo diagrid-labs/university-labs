@@ -75,6 +75,7 @@ async def workflow_failed(_: Request, error: grpc.RpcError) -> JSONResponse:
 # handler turns it into the error body, the same way as the gRPC handler above.
 class JumpError(Exception):
     def __init__(self, code: str, status_code: int):
+        super().__init__(code)
         self.code = code
         self.status_code = status_code
 

@@ -114,7 +114,7 @@ Write each language the way a developer of that language would, not as a transla
 - **Errors:** register one `@app.exception_handler(grpc.RpcError)` that turns any failed Dapr call into the track's error body, so endpoints only describe the happy path.
   - Catch `grpc.RpcError`, not `DaprGrpcError`. The async client's `invoke_binding` raises a raw `grpc.aio.AioRpcError`.
   - `save_state` can also raise `DaprInternalError`.
-  - Domain errors such as a missing jump (404) are raised as a small exception (`JumpError`), with its own `@app.exception_handler`, not returned from the endpoint.
+  - In `workflow/`, domain errors such as a missing jump (404) are raised as a small exception (`JumpError`), with its own `@app.exception_handler`, not returned from the endpoint.
 - Log with `logging.getLogger("<app-id>")` and `%`-style arguments.
 - Use type hints everywhere and `collections.abc` types.
 
@@ -127,7 +127,7 @@ Write each language the way a developer of that language would, not as a transla
 - Controllers return concrete types such as `List<ReadingRow>` or `void` for a cron trigger. They don't return `ResponseEntity` and don't use try/catch for API errors.
 - Map exceptions to responses in one `@RestControllerAdvice` class (`ApiErrors`): use `@ExceptionHandler` with `@ResponseStatus` for `DaprException` and the domain exceptions.
 - Block on the SDK's Mono with `.block()` inside controllers. This keeps the servlet stack simple to read.
-- For startup work, use an `@EventListener(ApplicationReadyEvent.class)` that waits for the sidecar first with `daprClient.waitForSidecar(...)`.
+- For startup work, use an `@EventListener(ApplicationReadyEvent.class)` (except the workflow runtime, see above) that waits for the sidecar first with `daprClient.waitForSidecar(...)`.
 - Inject configuration such as the Dapr HTTP port with `@Value("${DAPR_HTTP_PORT:3520}")`.
 - Log with SLF4J.
 

@@ -24,7 +24,7 @@ const workflowRuntime = new WorkflowRuntime()
 // The client starts and inspects workflows.
 const workflowClient = new DaprWorkflowClient();
 
-// A finished jump can't be controlled any more.
+// A finished jump can't receive the event any more.
 const FINISHED = [WorkflowRuntimeStatus.COMPLETED, WorkflowRuntimeStatus.FAILED, WorkflowRuntimeStatus.TERMINATED];
 
 const app = express();

@@ -71,10 +71,11 @@ async def workflow_failed(_: Request, error: grpc.RpcError) -> JSONResponse:
     return JSONResponse({"error": "WORKFLOW_ERROR"}, status_code=500)
 
 
-# A jump that doesn't exist (404) or is already finished (409). Endpoints raise it, and one
+# A jump that doesn't exist (404). Endpoints raise it, and one
 # handler turns it into the error body, the same way as the gRPC handler above.
 class JumpError(Exception):
     def __init__(self, code: str, status_code: int):
+        super().__init__(code)
         self.code = code
         self.status_code = status_code
 
