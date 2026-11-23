@@ -300,6 +300,63 @@ Two things to notice:
 dapr workflow purge --all -a engineering
 ```
 
+### Demo 4: monitor
+
+`CoreStabilityWorkflow` checks the warp-core temperature until it is stable. `ReadCoreTempActivity` takes the check number and returns the temperature in kelvin, `1240 - 60 * (check - 1)`, so every run and every language gets the same sequence:
+
+| Check | Temperature |
+|---|---|
+| 1 | 1240K |
+| 2 | 1180K |
+| 3 | 1120K |
+| 4 | 1060K |
+| 5 | 1000K |
+
+Each run of the workflow is one check:
+
+1. It reads the temperature. At 1000K or lower the core is stable and the workflow returns `{"stable": true, ...}`.
+2. If not, it waits on a **durable timer** of 5 seconds. The timer is stored by Dapr, not held in the app's memory.
+3. Then it calls **continue-as-new** with the next check number. That restarts the workflow with new input and an empty history, so the history stays small however long the monitor runs. A loop inside one workflow run would grow it with every check.
+4. The guard every monitor needs: at check 10 the workflow gives up and returns `{"stable": false, ...}`. With this fixed sequence it never triggers.
+
+Run the demo, then start a jump in a second terminal. This demo accepts a `destination` like the other demos but ignores it.
+
+```bash
+curl -s -X POST http://localhost:5301/jumps -H 'Content-Type: application/json' -d '{"jumpId": "jump-001"}'
+```
+
+```json
+{"jumpId":"jump-001"}
+```
+
+`engineering` logs one line about every 5 seconds:
+
+```text
+engineering core temperature check 1: 1240K
+engineering core temperature check 2: 1180K
+engineering core temperature check 3: 1120K
+engineering core temperature check 4: 1060K
+engineering core temperature check 5: 1000K
+```
+
+While the monitor runs, the status is `RUNNING`, also in the moments between two checks. The workflow state shows the in-between statuses (`CONTINUED_AS_NEW`, `PENDING`) as `RUNNING` too.
+
+```bash
+curl -s http://localhost:5301/jumps/jump-001
+```
+
+```json
+{"jumpId":"jump-001","status":"COMPLETED","output":{"stable":true,"checks":5,"coreTempK":1000}}
+```
+
+**Stop the app during a wait.** Start a new jump (`jump-002`). When `check 2` is logged, stop the demo with `Ctrl+C` while the 5-second timer is waiting, then run `dapr run -f .` again. You don't send any request. Within a few seconds of the app being ready, the workflow continues with check 3. Check 1 and 2 are not repeated, because the timer and the workflow's progress are stored by Dapr, not by the app.
+
+**Clean up.** Purge the finished jumps before you stop the demo:
+
+```bash
+dapr workflow purge --all -a engineering
+```
+
 ## Smoke tests
 
 `tests/workflow` holds one script per demo. They start the demo, drive it with `curl`, check the logs and the workflow output, and stop it again. Each test uses fresh jump IDs and terminates and purges its jumps before it stops the demo, so Redis is left clean.
@@ -314,3 +371,5 @@ The Demo 1 test stops the demo after stage 2, starts it again and checks that th
 The Demo 2 test checks that the four log lines come in chain order, that the output has the expected shape, that a missing, `null` or empty destination plots to Vesper Reach, and what happens when a jump ID is reused while the jump is running and after it has finished.
 
 The Demo 3 test checks that all five sensor arrays log their hazard score, that the output is `{"routeRisk":31,"verdict":"CLEAR"}`, and that the time from `POST` to `COMPLETED` is under 6 seconds, which five scans in a row (10 seconds or more) couldn't meet.
+
+The Demo 4 test stops the demo during the timer wait after check 2, starts it again and checks that the monitor completes, that checks 1 to 5 are each logged exactly once across the restart, that the status is `RUNNING` the whole time and that the output is `{"stable":true,"checks":5,"coreTempK":1000}`.
