@@ -1,0 +1,10 @@
+[project]
+name = "engineering"
+version = "0.1.0"
+description = "Scans the route with five sensor arrays in parallel with a Dapr workflow"
+requires-python = ">=3.12"
+dependencies = [
+    "dapr==1.19.0",
+    "fastapi==0.165.0",
+    "uvicorn==0.54.0",
+]

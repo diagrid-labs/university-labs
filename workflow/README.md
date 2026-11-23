@@ -244,6 +244,62 @@ Once `jump-003` has completed, the same call answers `202` and the jump starts o
 dapr workflow purge --all -a engineering
 ```
 
+### Demo 3: fan-out/fan-in
+
+`RouteScanWorkflow` scans the route with five sensor arrays at the same time, then combines the results. `ScanSectorActivity` takes the name of an array, scans for 2 seconds and returns a hazard score:
+
+| Array | Hazard |
+|---|---|
+| `alpha` | 12 |
+| `beta` | 7 |
+| `gamma` | 31 |
+| `delta` | 4 |
+| `epsilon` | 18 |
+
+The scores are fixed, so every run and every language gets the same result. This is the fan-out/fan-in pattern:
+
+- **Fan-out:** the workflow schedules all five activity calls without waiting for each one in turn.
+- **Fan-in:** it then waits for all of them at once, with the SDK's "when all" (`Task.WhenAll` in .NET, `wf.when_all` in Python, `ctx.allOf` in Java, `ctx.whenAll` in TypeScript), and works out `routeRisk`, the highest score, and a `verdict`: `CLEAR` below 50, otherwise `HAZARDOUS`.
+
+Run the demo, then start a jump in a second terminal. This demo accepts a `destination` like the other demos but ignores it.
+
+```bash
+curl -s -X POST http://localhost:5301/jumps -H 'Content-Type: application/json' -d '{"jumpId": "jump-001"}'
+```
+
+```json
+{"jumpId":"jump-001"}
+```
+
+`engineering` logs all five lines at about the same moment, after about two seconds:
+
+```text
+engineering sensor array beta scanned hazard=7
+engineering sensor array alpha scanned hazard=12
+engineering sensor array gamma scanned hazard=31
+engineering sensor array epsilon scanned hazard=18
+engineering sensor array delta scanned hazard=4
+```
+
+```bash
+curl -s http://localhost:5301/jumps/jump-001
+```
+
+```json
+{"jumpId":"jump-001","status":"COMPLETED","output":{"routeRisk":31,"verdict":"CLEAR"}}
+```
+
+Two things to notice:
+
+1. **The whole scan takes about 2 seconds, not 10.** Five scans of 2 seconds in a row would take 10 seconds. The runtime runs the five activities in parallel, and the workflow continues as soon as the slowest one is done.
+2. **The log order changes from run to run.** The activities run at the same time, so whichever finishes first logs first. Start a second jump (`jump-002`) and compare. The workflow output doesn't change, because the results come back in the order the activities were scheduled, not the order they finished.
+
+**Clean up.** Purge the finished jumps before you stop the demo:
+
+```bash
+dapr workflow purge --all -a engineering
+```
+
 ## Smoke tests
 
 `tests/workflow` holds one script per demo. They start the demo, drive it with `curl`, check the logs and the workflow output, and stop it again. Each test uses fresh jump IDs and terminates and purges its jumps before it stops the demo, so Redis is left clean.
@@ -256,3 +312,5 @@ bash tests/workflow/run-all.sh --demo 1 --lang python
 The Demo 1 test stops the demo after stage 2, starts it again and checks that the jump completes without repeating stage 1 or the replay-safe log line.
 
 The Demo 2 test checks that the four log lines come in chain order, that the output has the expected shape, that a missing, `null` or empty destination plots to Vesper Reach, and what happens when a jump ID is reused while the jump is running and after it has finished.
+
+The Demo 3 test checks that all five sensor arrays log their hazard score, that the output is `{"routeRisk":31,"verdict":"CLEAR"}`, and that the time from `POST` to `COMPLETED` is under 6 seconds, which five scans in a row (10 seconds or more) couldn't meet.
