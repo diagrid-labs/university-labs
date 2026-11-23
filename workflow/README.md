@@ -357,6 +357,64 @@ curl -s http://localhost:5301/jumps/jump-001
 dapr workflow purge --all -a engineering
 ```
 
+### Demo 5: human in the loop
+
+`AuthorizedJumpWorkflow` plots the course and then waits for the captain. It has three steps:
+
+1. It calls `PlotCourseActivity`, the same activity as Demo 2.
+2. It logs `engineering jump-001 awaiting captain's authorization`, once.
+3. It waits for an **external event** named `jump-authorized`, for at most 60 seconds. The wait uses the SDK's timeout option, so the workflow doesn't need its own timer.
+
+The demo adds one endpoint, which raises that event:
+
+| Method and route | What it does |
+|---|---|
+| `POST /jumps/{jumpId}/authorize` | Raises the `jump-authorized` event. Body: `{"approved": true, "officer": "Captain Ilsa Varn"}`. Answers `202`. An unknown ID answers `404 {"error": "JUMP_NOT_FOUND"}`. A jump that has finished answers `409 {"error": "JUMP_FINISHED"}` and the event is not raised: on Dapr 1.19.1 an event sent to a finished workflow leaves it in a stalled state. |
+
+There are three outcomes. Try each one with a new jump. While a jump waits, its status is `RUNNING` and nothing runs in the app: no thread and no timer in memory. The workflow only continues when the event arrives or the timeout passes.
+
+**Approved.** Start a jump, wait for the awaiting line, and approve it:
+
+```bash
+curl -s -X POST http://localhost:5301/jumps -H 'Content-Type: application/json' -d '{"jumpId": "jump-001"}'
+curl -s -X POST http://localhost:5301/jumps/jump-001/authorize -H 'Content-Type: application/json' \
+  -d '{"approved": true, "officer": "Captain Ilsa Varn"}'
+```
+
+`engineering` logs the awaiting line and, after the approval, `engineering jump complete, arrived at Vesper Reach`:
+
+```bash
+curl -s http://localhost:5301/jumps/jump-001
+```
+
+```json
+{"jumpId":"jump-001","status":"COMPLETED","output":{"status":"JUMPED","authorizedBy":"Captain Ilsa Varn"}}
+```
+
+**Denied.** The same, with `"approved": false` on a new jump (`jump-002`). The workflow logs `engineering jump-002 jump denied by Captain Ilsa Varn`, doesn't engage, and returns:
+
+```json
+{"jumpId":"jump-002","status":"COMPLETED","output":{"status":"DENIED","authorizedBy":"Captain Ilsa Varn"}}
+```
+
+**Timeout.** Start `jump-003` and send nothing. After 60 seconds the wait ends, the workflow logs `engineering jump-003 jump aborted, no authorization` and returns:
+
+```json
+{"jumpId":"jump-003","status":"COMPLETED","output":{"status":"ABORTED_NO_AUTHORIZATION"}}
+```
+
+Now try to authorize `jump-003` anyway. The jump is finished, so the app answers `409 {"error":"JUMP_FINISHED"}` and the output stays as it was.
+
+**Stop the app during the wait.** Start a new jump (`jump-004`). When the awaiting line is logged, stop the demo with `Ctrl+C`, run `dapr run -f .` again and then authorize the jump. The workflow continues as if nothing happened, and the awaiting line is not logged a second time. The wait, and its 60-second timeout, are stored by Dapr, not by the app.
+
+**Clean up.** Terminate any jump that is still waiting, then purge the finished ones:
+
+```bash
+dapr workflow list -a engineering
+dapr workflow terminate jump-004 -a engineering
+dapr workflow purge --all -a engineering
+```
+
 ## Smoke tests
 
 `tests/workflow` holds one script per demo. They start the demo, drive it with `curl`, check the logs and the workflow output, and stop it again. Each test uses fresh jump IDs and terminates and purges its jumps before it stops the demo, so Redis is left clean.
@@ -373,3 +431,5 @@ The Demo 2 test checks that the four log lines come in chain order, that the out
 The Demo 3 test checks that all five sensor arrays log their hazard score, that the output is `{"routeRisk":31,"verdict":"CLEAR"}`, and that the time from `POST` to `COMPLETED` is under 6 seconds, which five scans in a row (10 seconds or more) couldn't meet.
 
 The Demo 4 test stops the demo during the timer wait after check 2, starts it again and checks that the monitor completes, that checks 1 to 5 are each logged exactly once across the restart, that the status is `RUNNING` the whole time and that the output is `{"stable":true,"checks":5,"coreTempK":1000}`.
+
+The Demo 5 test starts three jumps. It approves one, denies one and leaves one unanswered, and checks the three outputs (`JUMPED`, `DENIED`, `ABORTED_NO_AUTHORIZATION`), that the denied jump doesn't engage and that each jump logs the awaiting line exactly once. It also checks that authorizing an unknown jump answers 404 and that authorizing the timed-out jump answers 409 and leaves its output unchanged. The timeout path makes the test take about a minute per language.
