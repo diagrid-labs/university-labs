@@ -49,8 +49,8 @@ wait_for_log "$ENG" engineering "engineering $TIMEOUT_ID awaiting captain's auth
 wait_for_status "$TIMEOUT_ID" COMPLETED 90
 assert_eq '{"status":"ABORTED_NO_AUTHORIZATION"}' "$(jump_output "$TIMEOUT_ID")" "timed-out jump output"
 
-# Late authorize: the jump is finished. A raised event would stall the instance (Dapr 1.19.1),
-# so the app answers 409 and raises nothing.
+# Late authorize: the jump is finished. Dapr 1.19.1 stalled an instance that received an event
+# (fixed in 1.19.2), so the app answers 409 and raises nothing.
 RESULT="$(post_json "$APP_URL/jumps/$TIMEOUT_ID/authorize" "{\"approved\":true,\"officer\":\"$CAPTAIN\"}")"
 assert_eq '409 {"error":"JUMP_FINISHED"}' "$RESULT" "late authorize answers 409"
 assert_eq '{"status":"ABORTED_NO_AUTHORIZATION"}' "$(jump_output "$TIMEOUT_ID")" "the late authorize did not change the output"

@@ -49,7 +49,8 @@ app.MapPost("/jumps/{jumpId}/authorize", async Task<IResult> (string jumpId, Aut
     {
         return TypedResults.NotFound(new { error = "JUMP_NOT_FOUND" });
     }
-    // Dapr 1.19.1 stalls a finished instance that receives an event, so don't raise one.
+    // Dapr 1.19.1 stalled a finished instance that received an event (fixed in 1.19.2).
+    // Keep the guard: a clear 409 beats a silent no-op.
     if (state.RuntimeStatus is WorkflowRuntimeStatus.Completed or WorkflowRuntimeStatus.Failed or WorkflowRuntimeStatus.Terminated)
     {
         return TypedResults.Conflict(new { error = "JUMP_FINISHED" });

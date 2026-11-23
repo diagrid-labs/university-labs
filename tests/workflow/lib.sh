@@ -375,8 +375,8 @@ with_timeout() {
 # cleanup_jump <jumpId>: removes the jump from the state store. Uses the Dapr CLI, which talks
 # to the running sidecar. A running or suspended jump is terminated first, then purged. A
 # PENDING jump (scheduled, never started) can hang a terminate, so it is force-purged. A
-# finished jump is never terminated: a control call on a finished workflow stalls it (Dapr
-# 1.19.1), and a stalled instance can only be purged with --force.
+# finished jump is never terminated: Dapr 1.19.1 stalled a finished workflow that received a
+# control call (fixed in 1.19.2), and a stalled instance can only be purged with --force.
 cleanup_jump() {
   local id="$1" i=0
   case "$(cli_status "$id")" in

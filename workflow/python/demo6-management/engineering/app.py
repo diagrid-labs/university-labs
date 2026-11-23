@@ -97,8 +97,9 @@ async def get_jump(jump_id: str, client: WorkflowClientDep):
     return JumpStatus(jump_id=jump_id, status=status, output=output)
 
 
-# Pause, resume and terminate read the state first. Dapr 1.19.1 stalls a finished instance that
-# receives a control call, so those calls are not made for one.
+# Pause, resume and terminate read the state first. Dapr 1.19.1 stalled a finished instance that
+# received a control call (fixed in 1.19.2). Keep the guard: a clear 409 beats a
+# silent no-op.
 async def reject_finished(client: DaprWorkflowClient, jump_id: str) -> JSONResponse | None:
     state = await client.get_workflow_state(jump_id)
     if state is None:

@@ -13,7 +13,7 @@ In Instruqt the sandbox setup script prepares everything below for you. Use this
 
 ## Prerequisites
 
-- [Dapr CLI](https://docs.dapr.io/getting-started/install-dapr-cli/) 1.19.1 and a completed `dapr init --runtime-version 1.19.1` (Docker required). The demos keep workflow state in the Redis container that `dapr init` starts.
+- [Dapr CLI](https://docs.dapr.io/getting-started/install-dapr-cli/) 1.19.1 and Dapr runtime 1.19.2, installed with `dapr init --runtime-version 1.19.2` (Docker required). The demos keep workflow state in the Redis container that `dapr init` starts.
 - `lsof`, which the smoke-test scripts use to stop the demo apps
 - The runtime for the language you want to run:
   - .NET SDK 10
@@ -93,7 +93,7 @@ dapr workflow terminate jump-001 -a engineering
 dapr workflow purge --all -a engineering
 ```
 
-Only terminate jumps that are still running or suspended. On Dapr 1.19.1, terminating a jump that has already finished leaves it in a stalled state, and `purge --all` then fails for it. If that happens, `dapr workflow purge --all --force -a engineering` removes it.
+Only terminate jumps that are still running or suspended. Terminating a jump that has already finished is pointless, and on Dapr 1.19.1 it left the jump in a stalled state that `purge --all` could not remove (fixed in 1.19.2; `dapr workflow purge --all --force -a engineering` removes such a jump).
 
 ### Demo 1: durable execution
 
@@ -371,7 +371,7 @@ The demo adds one endpoint, which raises that event:
 
 | Method and route | What it does |
 |---|---|
-| `POST /jumps/{jumpId}/authorize` | Raises the `jump-authorized` event. Body: `{"approved": true, "officer": "Captain Ilsa Varn"}`. Answers `202`. An unknown ID answers `404 {"error": "JUMP_NOT_FOUND"}`. A jump that has finished answers `409 {"error": "JUMP_FINISHED"}` and the event is not raised: on Dapr 1.19.1 an event sent to a finished workflow leaves it in a stalled state. |
+| `POST /jumps/{jumpId}/authorize` | Raises the `jump-authorized` event. Body: `{"approved": true, "officer": "Captain Ilsa Varn"}`. Answers `202`. An unknown ID answers `404 {"error": "JUMP_NOT_FOUND"}`. A jump that has finished answers `409 {"error": "JUMP_FINISHED"}` and the event is not raised: Dapr 1.19.1 stalled a finished workflow that received an event (fixed in 1.19.2), and the 409 keeps the behaviour clear. |
 
 There are three outcomes. Try each one with a new jump. While a jump waits, its status is `RUNNING` and nothing runs in the app: no thread and no timer in memory. The workflow only continues when the event arrives or the timeout passes.
 
@@ -432,7 +432,7 @@ The demo adds four endpoints. Each one is a single call on the SDK's workflow cl
 | `POST /jumps/{jumpId}/terminate` | Terminates the workflow. Answers `202`. |
 | `DELETE /jumps/{jumpId}` | Purges the workflow's history from the state store. Answers `204`. |
 
-An unknown ID answers `404 {"error": "JUMP_NOT_FOUND"}` on all four. Pause, resume and terminate on a jump that has finished answer `409 {"error": "JUMP_FINISHED"}` and make no call to Dapr: on Dapr 1.19.1 a control call on a finished workflow leaves it in a stalled state.
+An unknown ID answers `404 {"error": "JUMP_NOT_FOUND"}` on all four. Pause, resume and terminate on a jump that has finished answer `409 {"error": "JUMP_FINISHED"}` and make no call to Dapr: Dapr 1.19.1 stalled a finished workflow that received a control call (fixed in 1.19.2), and the 409 keeps the behaviour clear.
 
 Start a jump and watch the legs in the `engineering` log:
 

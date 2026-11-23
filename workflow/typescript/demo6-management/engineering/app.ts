@@ -48,8 +48,9 @@ app.get("/jumps/:jumpId", async (req: Request<{ jumpId: string }>, res: Response
   res.json({ jumpId, status, output: state.getOutput() ?? null });
 });
 
-// Pause, resume and terminate read the state first. Dapr 1.19.1 stalls a finished instance that
-// receives a control call, so those calls are not made for one. Answers 404 or 409 and returns
+// Pause, resume and terminate read the state first. Dapr 1.19.1 stalled a finished instance that
+// received a control call (fixed in 1.19.2). Keep the guard: a clear 409 beats a
+// silent no-op. Answers 404 or 409 and returns
 // true when the jump is unknown or finished.
 async function rejectFinished(jumpId: string, res: Response): Promise<boolean> {
   const state = await workflowClient.getWorkflowState(jumpId, false);

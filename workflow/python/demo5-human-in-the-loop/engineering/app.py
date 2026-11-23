@@ -108,7 +108,8 @@ async def authorize_jump(jump_id: str, authorization: Authorization, client: Wor
     state = await client.get_workflow_state(jump_id)
     if state is None:
         return JSONResponse({"error": "JUMP_NOT_FOUND"}, status_code=404)
-    # Dapr 1.19.1 stalls a finished instance that receives an event, so don't raise one.
+    # Dapr 1.19.1 stalled a finished instance that received an event (fixed in 1.19.2).
+    # Keep the guard: a clear 409 beats a silent no-op.
     if state.runtime_status.name in ("COMPLETED", "FAILED", "TERMINATED"):
         return JSONResponse({"error": "JUMP_FINISHED"}, status_code=409)
     await client.raise_workflow_event(

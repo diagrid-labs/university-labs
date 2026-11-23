@@ -72,7 +72,8 @@ class JumpController {
         if (state.getWorkflowId().isEmpty()) {
             throw new ApiErrors.JumpNotFoundException();
         }
-        // Dapr 1.19.1 stalls a finished instance that receives an event, so don't raise one.
+        // Dapr 1.19.1 stalled a finished instance that received an event (fixed in 1.19.2).
+        // Keep the guard: a clear 409 beats a silent no-op.
         switch (state.getRuntimeStatus()) {
             case COMPLETED, FAILED, TERMINATED -> throw new ApiErrors.JumpFinishedException();
             default -> workflowClient.raiseEvent(jumpId, "jump-authorized", authorization);

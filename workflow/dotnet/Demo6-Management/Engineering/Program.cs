@@ -41,8 +41,9 @@ app.MapGet("/jumps/{jumpId}", async Task<IResult> (string jumpId, DaprWorkflowCl
     return TypedResults.Ok(new JumpStatus(jumpId, status, state.ReadOutputAs<JsonElement?>()));
 });
 
-// Pause, resume and terminate read the state first. Dapr 1.19.1 stalls a finished instance that
-// receives a control call, so those calls are not made for one.
+// Pause, resume and terminate read the state first. Dapr 1.19.1 stalled a finished instance that
+// received a control call (fixed in 1.19.2). Keep the guard: a clear 409 beats a
+// silent no-op.
 async Task<IResult> Control(string jumpId, DaprWorkflowClient workflowClient, Func<Task> call)
 {
     var state = await workflowClient.GetWorkflowStateAsync(jumpId);

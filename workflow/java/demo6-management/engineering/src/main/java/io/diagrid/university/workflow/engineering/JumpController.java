@@ -65,8 +65,9 @@ class JumpController {
         return new JumpStatus(jumpId, status, state.readOutputAs(Object.class));
     }
 
-    // Pause, resume and terminate read the state first. Dapr 1.19.1 stalls a finished instance that
-    // receives a control call, so those calls are not made for one.
+    // Pause, resume and terminate read the state first. Dapr 1.19.1 stalled a finished instance that
+    // received a control call (fixed in 1.19.2). Keep the guard: a clear 409 beats a
+    // silent no-op.
     private void requireUnfinished(String jumpId) {
         WorkflowState state = workflowClient.getWorkflowState(jumpId, false);
         if (state.getWorkflowId().isEmpty()) {

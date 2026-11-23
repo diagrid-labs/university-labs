@@ -81,7 +81,7 @@ apps:
 
 ## Versions
 
-- **Dapr:** CLI and runtime 1.19.1.
+- **Dapr:** CLI and runtime 1.19.1. The workflow track uses runtime 1.19.2 (CLI stays 1.19.1) because its Instruqt track does.
 - **.NET:** SDK 10, with `net10.0` minimal APIs. Packages `Dapr.Client` / `Dapr.AspNetCore` / `Dapr.Messaging` / `Dapr.Workflow` 1.19.1.
 - **Python:** 3.12+ with [uv]. Each app has its own `pyproject.toml` and `uv.lock`. Pin the Dapr SDK exactly: `dapr==1.19.0`.
 - **Java:** 17 with Maven and Spring Boot 4.0.8. Use the `spring-boot-starter-webmvc` starter, plus `spring-boot-starter-restclient` when the app uses a `RestClient`. Jackson 3 (`tools.jackson.*`), `io.dapr:dapr-sdk` 1.19.0 (`io.dapr:dapr-sdk-workflows` 1.19.0 for workflows), and the package `io.diagrid.university.<track>.<app>`.
