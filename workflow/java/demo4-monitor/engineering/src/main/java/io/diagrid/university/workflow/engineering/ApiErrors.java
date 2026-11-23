@@ -1,5 +1,6 @@
 package io.diagrid.university.workflow.engineering;
 
+import io.grpc.StatusRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -28,9 +29,9 @@ class ApiErrors {
     }
 
     // A failed workflow call surfaces as a gRPC StatusRuntimeException from the workflow client.
-    @ExceptionHandler(io.grpc.StatusRuntimeException.class)
+    @ExceptionHandler(StatusRuntimeException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    ErrorBody workflowFailed(io.grpc.StatusRuntimeException e) {
+    ErrorBody workflowFailed(StatusRuntimeException e) {
         log.warn("engineering workflow call failed: {}", e.getMessage());
         return new ErrorBody("WORKFLOW_ERROR");
     }

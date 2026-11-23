@@ -35,8 +35,9 @@ class JumpController {
     @PostMapping
     @ResponseStatus(HttpStatus.ACCEPTED)
     JumpStarted startJump(@RequestBody(required = false) JumpRequest request) {
-        String jumpId = request != null && request.jumpId() != null && !request.jumpId().isEmpty()
-                ? request.jumpId()
+        JumpRequest body = request != null ? request : new JumpRequest(null, null);
+        String jumpId = body.jumpId() != null && !body.jumpId().isEmpty()
+                ? body.jumpId()
                 : "jump-" + UUID.randomUUID().toString().substring(0, 8);
         // The jump ID becomes the workflow instance ID. The call returns as soon as the sidecar
         // has scheduled the workflow; the workflow itself runs in the background.

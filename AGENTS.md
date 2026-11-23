@@ -122,6 +122,7 @@ Write each language the way a developer of that language would, not as a transla
 
 - Use Spring Boot with `@RestController` classes, constructor injection, and package-private classes where possible.
 - Declare one `DaprClient` `@Bean` in the `*Application` class. It is `AutoCloseable`, so Spring closes it.
+- Declare the workflow runtime as a `WorkflowRuntime` `@Bean` too (it is `AutoCloseable`, so Spring closes it) and start it from an `ApplicationListener<ApplicationReadyEvent>` bean.
 - Use records for request and response bodies. Their component order is the JSON key order.
 - Controllers return concrete types such as `List<ReadingRow>` or `void` for a cron trigger. They don't return `ResponseEntity` and don't use try/catch for API errors.
 - Map exceptions to responses in one `@RestControllerAdvice` class (`ApiErrors`): use `@ExceptionHandler` with `@ResponseStatus` for `DaprException` and the domain exceptions.
