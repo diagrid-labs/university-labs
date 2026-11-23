@@ -56,7 +56,7 @@ app.MapPost("/jumps/{jumpId}/authorize", async Task<IResult> (string jumpId, Aut
         return TypedResults.Conflict(new { error = "JUMP_FINISHED" });
     }
     await workflowClient.RaiseEventAsync(jumpId, "jump-authorized", authorization);
-    return Results.Accepted();
+    return TypedResults.StatusCode(StatusCodes.Status202Accepted);
 });
 
 app.Run();

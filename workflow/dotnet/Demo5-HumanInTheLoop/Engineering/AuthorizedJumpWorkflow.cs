@@ -44,7 +44,7 @@ class AuthorizedJumpWorkflow : Workflow<Jump, JumpOutcome>
 // JSON key order. A null AuthorizedBy is left out of the output.
 record Jump(string JumpId, string Destination);
 
-record Authorization(bool Approved, string Officer);
+record Authorization(bool Approved, string? Officer);
 
 record JumpOutcome(string Status, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? AuthorizedBy);
 

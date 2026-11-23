@@ -56,7 +56,7 @@ async Task<IResult> Control(string jumpId, DaprWorkflowClient workflowClient, Fu
         return TypedResults.Conflict(new { error = "JUMP_FINISHED" });
     }
     await call();
-    return Results.Accepted();
+    return TypedResults.StatusCode(StatusCodes.Status202Accepted);
 }
 
 // Each management endpoint is one call on the workflow client.
