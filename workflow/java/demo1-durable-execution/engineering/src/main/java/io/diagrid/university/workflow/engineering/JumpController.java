@@ -16,11 +16,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/jumps")
 class JumpController {
 
-    // Both fields are optional. Demo 1 accepts a destination and ignores it; later demos fly there.
+    // Both fields are optional. Demo 1 accepts a destination, like the other demos, but ignores it.
     record JumpRequest(String jumpId, String destination) {
-        JumpRequest {
-            destination = destination != null && !destination.isEmpty() ? destination : "Vesper Reach";
-        }
     }
 
     record JumpStarted(String jumpId) {

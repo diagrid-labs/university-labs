@@ -3,7 +3,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { randomUUID } from "node:crypto";
 import { chargeStageActivity, chargeWarpCoreWorkflow, type Jump } from "./workflow.ts";
 
-// Both fields are optional. Demo 1 accepts a destination and ignores it; later demos fly there.
+// Both fields are optional. Demo 1 accepts a destination, like the other demos, but ignores it.
 interface JumpRequest {
   jumpId?: string | null;
   destination?: string | null;
@@ -23,8 +23,6 @@ app.use(express.json());
 app.post("/jumps", async (req: Request, res: Response) => {
   const body: JumpRequest = req.body ?? {};
   const jumpId = body.jumpId || `jump-${randomUUID().slice(0, 8)}`;
-  // Demo 1 doesn't use the destination; later demos pass it to the workflow.
-  const destination = body.destination || "Vesper Reach";
   const jump: Jump = { jumpId };
   // The jump ID becomes the workflow instance ID. The call returns as soon as the sidecar has
   // scheduled the workflow; the workflow itself runs in the background.

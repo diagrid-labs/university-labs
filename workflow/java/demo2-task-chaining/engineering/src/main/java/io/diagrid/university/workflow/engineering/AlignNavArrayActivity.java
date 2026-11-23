@@ -12,7 +12,7 @@ public class AlignNavArrayActivity implements WorkflowActivity {
 
     @Override
     public Object run(WorkflowActivityContext ctx) {
-        Integer input = ctx.getInput(Integer.class);
+        int warpFactor = ctx.getInput(Integer.class);
         try {
             TimeUnit.SECONDS.sleep(1);
         } catch (InterruptedException e) {

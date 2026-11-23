@@ -49,30 +49,48 @@ app.get("/jumps/:jumpId", async (req: Request<{ jumpId: string }>, res: Response
 });
 
 // Pause, resume and terminate read the state first. Dapr 1.19.1 stalls a finished instance that
-// receives a control call, so those calls are not made for one.
-const controls = {
-  pause: (jumpId: string) => workflowClient.suspendWorkflow(jumpId),
-  resume: (jumpId: string) => workflowClient.resumeWorkflow(jumpId),
-  terminate: (jumpId: string) => workflowClient.terminateWorkflow(jumpId),
-};
+// receives a control call, so those calls are not made for one. Answers 404 or 409 and returns
+// true when the jump is unknown or finished.
+async function rejectFinished(jumpId: string, res: Response): Promise<boolean> {
+  const state = await workflowClient.getWorkflowState(jumpId, false);
+  if (!state) {
+    res.status(404).json({ error: "JUMP_NOT_FOUND" });
+    return true;
+  }
+  if (["COMPLETED", "FAILED", "TERMINATED"].includes(WorkflowRuntimeStatus[state.runtimeStatus])) {
+    res.status(409).json({ error: "JUMP_FINISHED" });
+    return true;
+  }
+  return false;
+}
 
 // Each management endpoint is one call on the workflow client.
-for (const [action, call] of Object.entries(controls)) {
-  app.post(`/jumps/:jumpId/${action}`, async (req: Request<{ jumpId: string }>, res: Response) => {
-    const { jumpId } = req.params;
-    const state = await workflowClient.getWorkflowState(jumpId, false);
-    if (!state) {
-      res.status(404).json({ error: "JUMP_NOT_FOUND" });
-      return;
-    }
-    if (["COMPLETED", "FAILED", "TERMINATED"].includes(WorkflowRuntimeStatus[state.runtimeStatus])) {
-      res.status(409).json({ error: "JUMP_FINISHED" });
-      return;
-    }
-    await call(jumpId);
-    res.status(202).end();
-  });
-}
+app.post("/jumps/:jumpId/pause", async (req: Request<{ jumpId: string }>, res: Response) => {
+  const { jumpId } = req.params;
+  if (await rejectFinished(jumpId, res)) {
+    return;
+  }
+  await workflowClient.suspendWorkflow(jumpId);
+  res.status(202).end();
+});
+
+app.post("/jumps/:jumpId/resume", async (req: Request<{ jumpId: string }>, res: Response) => {
+  const { jumpId } = req.params;
+  if (await rejectFinished(jumpId, res)) {
+    return;
+  }
+  await workflowClient.resumeWorkflow(jumpId);
+  res.status(202).end();
+});
+
+app.post("/jumps/:jumpId/terminate", async (req: Request<{ jumpId: string }>, res: Response) => {
+  const { jumpId } = req.params;
+  if (await rejectFinished(jumpId, res)) {
+    return;
+  }
+  await workflowClient.terminateWorkflow(jumpId);
+  res.status(202).end();
+});
 
 // Purge removes the history of a finished jump. A running jump can't be purged: the call throws
 // and the error handler answers 500.

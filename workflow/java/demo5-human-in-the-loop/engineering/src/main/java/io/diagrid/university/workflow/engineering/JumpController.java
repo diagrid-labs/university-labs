@@ -29,9 +29,6 @@ class JumpController {
     record JumpStatus(String jumpId, String status, Object output) {
     }
 
-    record Authorization(boolean approved, String officer) {
-    }
-
     private final DaprWorkflowClient workflowClient;
 
     JumpController(DaprWorkflowClient workflowClient) {
@@ -70,7 +67,7 @@ class JumpController {
     // Raises the external event the workflow is waiting for.
     @PostMapping("/{jumpId}/authorize")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    void authorize(@PathVariable String jumpId, @RequestBody Authorization authorization) {
+    void authorize(@PathVariable String jumpId, @RequestBody AuthorizedJumpWorkflow.Authorization authorization) {
         WorkflowState state = workflowClient.getWorkflowState(jumpId, false);
         if (state.getWorkflowId().isEmpty()) {
             throw new ApiErrors.JumpNotFoundException();

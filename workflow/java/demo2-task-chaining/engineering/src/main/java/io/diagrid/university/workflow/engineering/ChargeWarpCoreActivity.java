@@ -12,7 +12,7 @@ public class ChargeWarpCoreActivity implements WorkflowActivity {
 
     @Override
     public Object run(WorkflowActivityContext ctx) {
-        JumpWorkflow.Course input = ctx.getInput(JumpWorkflow.Course.class);
+        JumpWorkflow.Course course = ctx.getInput(JumpWorkflow.Course.class);
         try {
             TimeUnit.SECONDS.sleep(1);
         } catch (InterruptedException e) {

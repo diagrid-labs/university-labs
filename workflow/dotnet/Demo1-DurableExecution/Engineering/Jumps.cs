@@ -2,8 +2,8 @@ using System.Text.Json;
 
 // The HTTP contract. The property order is the JSON key order.
 
-// Both fields are optional. Demo 1 accepts a destination and ignores it; later demos fly there.
-record JumpRequest(string? JumpId, string Destination = "Vesper Reach");
+// Both fields are optional. Demo 1 accepts a destination, like the other demos, but ignores it.
+record JumpRequest(string? JumpId, string? Destination);
 
 record JumpStarted(string JumpId);
 

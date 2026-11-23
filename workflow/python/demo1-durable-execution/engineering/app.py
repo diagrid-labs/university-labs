@@ -28,8 +28,8 @@ class CamelModel(BaseModel):
 
 class JumpRequest(CamelModel):
     jump_id: str | None = None
-    # Demo 1 accepts a destination and ignores it; later demos fly there.
-    destination: str = "Vesper Reach"
+    # Demo 1 accepts a destination, like the other demos, but ignores it.
+    destination: str | None = None
 
 
 class JumpStarted(CamelModel):

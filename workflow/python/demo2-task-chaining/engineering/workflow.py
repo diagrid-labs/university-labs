@@ -52,11 +52,11 @@ def align_nav_array_activity(ctx: wf.WorkflowActivityContext, warp_factor: int) 
 
 
 @wfr.activity(name="EngageJumpActivity")
-def engage_jump_activity(ctx: wf.WorkflowActivityContext, jump: dict) -> dict:
+def engage_jump_activity(ctx: wf.WorkflowActivityContext, engage: dict) -> dict:
     time.sleep(1)
     # Stardate: 78000.0 at 2026-01-01T00:00:00Z, one unit per hour after that. It reads the
     # clock, which is fine in an activity but never in the workflow.
     stardate = round(78000.0 + (int(time.time()) - 1767225600) / 3600.0, 1)
-    arrived_at = jump["course"]["destination"]
+    arrived_at = engage["course"]["destination"]
     logger.info("engineering jump complete, arrived at %s", arrived_at)
     return {"arrivedAt": arrived_at, "stardate": stardate}

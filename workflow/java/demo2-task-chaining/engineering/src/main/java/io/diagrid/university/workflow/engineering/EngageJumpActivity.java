@@ -13,7 +13,7 @@ public class EngageJumpActivity implements WorkflowActivity {
 
     @Override
     public Object run(WorkflowActivityContext ctx) {
-        JumpWorkflow.Engage input = ctx.getInput(JumpWorkflow.Engage.class);
+        JumpWorkflow.Engage engage = ctx.getInput(JumpWorkflow.Engage.class);
         try {
             TimeUnit.SECONDS.sleep(1);
         } catch (InterruptedException e) {
@@ -23,7 +23,7 @@ public class EngageJumpActivity implements WorkflowActivity {
         // Stardate: 78000.0 at 2026-01-01T00:00:00Z, one unit per hour after that. It reads the
         // clock, which is fine in an activity but never in the workflow.
         double stardate = Math.round((78000.0 + (Instant.now().getEpochSecond() - 1767225600L) / 3600.0) * 10.0) / 10.0;
-        log.info("engineering jump complete, arrived at {}", input.course().destination());
-        return new JumpWorkflow.JumpResult(input.course().destination(), stardate);
+        log.info("engineering jump complete, arrived at {}", engage.course().destination());
+        return new JumpWorkflow.JumpResult(engage.course().destination(), stardate);
     }
 }
