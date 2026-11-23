@@ -1,0 +1,174 @@
+# Dapr Workflow demos
+
+Demo apps for the Dapr University Workflow 101 track, in .NET, Python, Java and TypeScript. The story: the bridge of the *ISV Meridian* orders a **warp jump**, and the ship's **engineering** console runs it as a Dapr workflow. Each demo shows one thing workflows give you:
+
+- **Durable execution:** a workflow survives a crash and carries on from the last completed step.
+- **Task chaining, fan-out/fan-in and monitor:** the common workflow patterns.
+- **Human in the loop:** a workflow that waits for an external event.
+- **Management:** pause, resume, terminate and purge a running workflow.
+
+A workflow is ordinary code in your app. The Dapr sidecar runs it: it schedules each step, saves the workflow's history in a state store, and replays the code from that history when the app comes back after a crash. Your app hosts the workflow and its activities, and calls the sidecar through the Dapr Workflow SDK.
+
+In Instruqt the sandbox setup script prepares everything below for you. Use this guide to run the demos on your own machine.
+
+## Prerequisites
+
+- [Dapr CLI](https://docs.dapr.io/getting-started/install-dapr-cli/) 1.19.1 and a completed `dapr init --runtime-version 1.19.1` (Docker required). The demos keep workflow state in the Redis container that `dapr init` starts.
+- `lsof`, which the smoke-test scripts use to stop the demo apps
+- The runtime for the language you want to run:
+  - .NET SDK 10
+  - Python 3.12 or later with [uv](https://docs.astral.sh/uv/)
+  - Java 17 with Maven (the Java demos use Spring Boot 4.0.8)
+  - Node.js 24. Run `npm install` once in each TypeScript demo's `engineering` folder before the first `dapr run`.
+
+The shell commands below assume a POSIX shell (Git Bash, WSL, macOS or Linux). The track itself runs on a Linux sandbox.
+
+Every demo uses the same app ID and ports in every language, so run one demo at a time:
+
+| App | App port | Dapr HTTP port | Dapr gRPC port |
+|---|---|---|---|
+| `engineering` | 5301 | 3530 | 50330 |
+
+The workflow SDKs talk to the sidecar over gRPC, which is why each `dapr.yaml` also sets the gRPC port.
+
+## The demos
+
+| Challenge | .NET folder | Python, Java and TypeScript folder | What it shows |
+|---|---|---|---|
+| 1 | `Demo1-DurableExecution` | `demo1-durable-execution` | A five-stage warp-core charge that survives a crash: stop the app halfway, start it again, and it continues with the next stage. |
+| 2 | `Demo2-TaskChaining` | `demo2-task-chaining` | Four activities in sequence, each one's output the next one's input: plot the course, charge the warp core, align the nav array, engage. |
+| 3 | `Demo3-FanOutFanIn` | `demo3-fan-out-fan-in` | Five sensor arrays scan the route in parallel; the workflow waits for all of them and combines the results. |
+| 4 | `Demo4-Monitor` | `demo4-monitor` | The workflow checks the core temperature until it is stable, with a durable timer and continue-as-new between checks. |
+| 5 | `Demo5-HumanInTheLoop` | `demo5-human-in-the-loop` | The workflow waits for the captain's authorization, an external event, with a timeout. |
+| 6 | `Demo6-Management` | `demo6-management` | A long jump you pause, resume, terminate and purge through the SDK's workflow client. |
+
+Folder names follow each language's conventions: .NET uses PascalCase (`Demo1-DurableExecution/Engineering`), Python, Java and TypeScript use kebab-case (`demo1-durable-execution/engineering`).
+
+Every demo runs the same way. Pick the folder for your language and the demo you want, for example Demo 1:
+
+```bash
+cd workflow/dotnet/Demo1-DurableExecution   # Python: workflow/python/demo1-durable-execution, Java: workflow/java/demo1-durable-execution, TypeScript: workflow/typescript/demo1-durable-execution
+dapr run -f .
+```
+
+Stop it with Ctrl+C, which stops both the app and its sidecar. Run the `curl` commands in a second terminal. The first run of a Java demo is slow while Maven downloads dependencies.
+
+Each language's `resources/statestore.yaml` points at the `dapr init` Redis and sets `actorStateStore: "true"`: Dapr Workflow is built on actors, and keeps each workflow's history in the actor state store. The app never uses the component's name.
+
+### The endpoints
+
+The apps expose a few HTTP endpoints so you can drive the workflows with `curl`. Each one is a thin shell around the SDK's workflow client. Every demo has these two:
+
+| Method and route | What it does |
+|---|---|
+| `POST /jumps` | Starts a workflow. Body: `{"jumpId": "jump-001", "destination": "Vesper Reach"}`. Both fields are optional: `jumpId` defaults to a generated ID such as `jump-3f9c2a1b`, `destination` to `Vesper Reach`. `jumpId` becomes the workflow instance ID. Answers `202 {"jumpId": "jump-001"}`. |
+| `GET /jumps/{jumpId}` | Answers `{"jumpId": …, "status": …, "output": …}`. `status` is `RUNNING`, `COMPLETED`, `FAILED`, `TERMINATED` or `SUSPENDED`, and `output` is the workflow's result, or `null` while it runs. An unknown ID answers `404 {"error": "JUMP_NOT_FOUND"}`. |
+
+When a call to Dapr fails, the endpoint answers `500 {"error": "WORKFLOW_ERROR"}` and the app logs a warning that starts with `engineering workflow call failed:`.
+
+The apps log the same lines in every language. Each language adds its own prefix (`INFO:engineering:` in Python, a timestamp and logger name in Java, `info: <class>` on the line above in .NET), and the TypeScript SDK also logs a few lines of its own for every workflow step. The expected output below shows the lines without those extras.
+
+### Fresh IDs and leftover workflows
+
+Workflow state lives in Redis, which every language and demo shares, and every demo uses the app ID `engineering`. Two things follow from that.
+
+**Reusing a jump ID.** The `curl` commands below use readable IDs such as `jump-001`. Starting a jump with the ID of one that has finished (`COMPLETED`, `FAILED` or `TERMINATED`) starts it over: the old history and result are replaced. Starting one with the ID of a jump that is still running answers `500 {"error": "WORKFLOW_ERROR"}` and the app logs:
+
+```text
+engineering workflow call failed: ... an active workflow with ID 'jump-001' already exists
+```
+
+Use a new ID, or leave out `jumpId` and let the app generate one.
+
+**Leftover workflows.** A jump that is still running when you stop a demo is picked up again by the next `engineering` app you start, even one from another demo that doesn't have that workflow. So end each demo with the clean-up step below. It uses the Dapr CLI's `dapr workflow` commands, which talk to the running sidecar, so run it while the demo is still running:
+
+```bash
+# List every jump of the engineering app and its status.
+dapr workflow list -a engineering
+# Terminate each jump that is still RUNNING or SUSPENDED, for example:
+dapr workflow terminate jump-001 -a engineering
+# Remove the history of every finished jump.
+dapr workflow purge --all -a engineering
+```
+
+Only terminate jumps that are still running or suspended. On Dapr 1.19.1, terminating a jump that has already finished leaves it in a stalled state, and `purge --all` then fails for it. If that happens, `dapr workflow purge --all --force -a engineering` removes it.
+
+### Demo 1: durable execution
+
+`ChargeWarpCoreWorkflow` charges the warp core in five stages. It calls one activity, `ChargeStageActivity`, five times in a plain loop. Each stage takes about three seconds and then logs a line. When all five are done, the workflow returns `{"jumpId": "jump-001", "coreCharged": true}`.
+
+Two building blocks of every workflow app show up here:
+
+- **The workflow** (`ChargeWarpCoreWorkflow`) decides what happens in which order. It doesn't do the work itself.
+- **An activity** (`ChargeStageActivity`) does the work: it can be slow, call other services or write to a database.
+
+Run the demo, then start a jump in a second terminal:
+
+```bash
+curl -s -X POST http://localhost:5301/jumps -H 'Content-Type: application/json' -d '{"jumpId": "jump-001"}'
+```
+
+```json
+{"jumpId":"jump-001"}
+```
+
+`engineering` logs:
+
+```text
+engineering jump-001 charge sequence started
+engineering charge stage 1/5 complete for jump-001
+engineering charge stage 2/5 complete for jump-001
+```
+
+Now crash the ship. **Right after stage 2 completes, press Ctrl+C** in the terminal that runs the demo. That stops the app and its sidecar while stage 3 is running. Then start it again:
+
+```bash
+dapr run -f .
+```
+
+Don't send another `curl`. Within a few seconds of the app being ready, the log carries on:
+
+```text
+engineering charge stage 3/5 complete for jump-001
+engineering charge stage 4/5 complete for jump-001
+engineering charge stage 5/5 complete for jump-001
+```
+
+Check the jump:
+
+```bash
+curl -s http://localhost:5301/jumps/jump-001
+```
+
+```json
+{"jumpId":"jump-001","status":"COMPLETED","output":{"jumpId":"jump-001","coreCharged":true}}
+```
+
+What happened:
+
+- **Completed stages didn't run again.** Every time an activity finishes, the sidecar records its result in the workflow's history in the state store. Each `await` (or `yield` in Python and TypeScript) on an activity is a checkpoint. Stages 1 and 2 were in the history before the crash, so they were not repeated.
+- **The stage that was running did run again.** Stage 3 had not reported back when the app stopped, so after the restart the sidecar sent it to the app again. Activities run at least once, so they should be safe to repeat. In Python you may even see `stage 3/5 complete` during the shutdown: the activity finished, but its result never reached the sidecar, so it still runs again.
+- **The workflow code itself ran again, from the top.** After the restart the sidecar replayed `ChargeWarpCoreWorkflow` to rebuild where it was. On a replay the SDK hands the stored results of stages 1 and 2 straight back instead of running those activities. The `charge sequence started` line is written with a replay-safe logger (or an `is replaying` check), so it doesn't appear a second time even though that line of code ran again.
+
+Because the workflow code is replayed, it must be **deterministic**: every replay has to make the same calls in the same order. So the workflow never reads the clock, makes random numbers, does I/O or sleeps. The three-second wait is inside the activity, which is where that kind of work belongs.
+
+The app also has no database code. The state store component is only used by the sidecar, which saves and loads the workflow history.
+
+If you use the [Dapr Dev Dashboard](https://docs.diagrid.io/develop/local-development/dev-dashboard/), a local dev tool, it lists the `engineering` app and its `ChargeWarpCoreWorkflow` runs, read from the same Redis state store.
+
+**Clean up.** `jump-001` has finished, so purge it (or use the steps in [Fresh IDs and leftover workflows](#fresh-ids-and-leftover-workflows)) before you stop the demo:
+
+```bash
+dapr workflow purge jump-001 -a engineering
+```
+
+## Smoke tests
+
+`tests/workflow` holds one script per demo. They start the demo, drive it with `curl`, check the logs and the workflow output, and stop it again. Each test uses fresh jump IDs and terminates and purges its jumps before it stops the demo, so Redis is left clean.
+
+```bash
+bash tests/workflow/run-all.sh                     # every demo in every language, Java is slow
+bash tests/workflow/run-all.sh --demo 1 --lang python
+```
+
+The Demo 1 test stops the demo after stage 2, starts it again and checks that the jump completes without repeating stage 1 or the replay-safe log line.
