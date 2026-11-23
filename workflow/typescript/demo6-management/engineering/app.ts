@@ -17,6 +17,9 @@ const workflowRuntime = new WorkflowRuntime()
 // The client starts and inspects workflows.
 const workflowClient = new DaprWorkflowClient();
 
+// A finished jump can't be controlled any more.
+const FINISHED = [WorkflowRuntimeStatus.COMPLETED, WorkflowRuntimeStatus.FAILED, WorkflowRuntimeStatus.TERMINATED];
+
 const app = express();
 app.use(express.json());
 
@@ -41,10 +44,8 @@ app.get("/jumps/:jumpId", async (req: Request<{ jumpId: string }>, res: Response
   }
   // WorkflowRuntimeStatus is a numeric enum; look up its name. In-between statuses show as
   // RUNNING, so the learner only sees five statuses.
-  let status = WorkflowRuntimeStatus[state.runtimeStatus];
-  if (["PENDING", "CONTINUED_AS_NEW", "STALLED"].includes(status)) {
-    status = "RUNNING";
-  }
+  const name = WorkflowRuntimeStatus[state.runtimeStatus];
+  const status = ["PENDING", "CONTINUED_AS_NEW", "STALLED"].includes(name) ? "RUNNING" : name;
   res.json({ jumpId, status, output: state.getOutput() ?? null });
 });
 
@@ -58,7 +59,7 @@ async function rejectFinished(jumpId: string, res: Response): Promise<boolean> {
     res.status(404).json({ error: "JUMP_NOT_FOUND" });
     return true;
   }
-  if (["COMPLETED", "FAILED", "TERMINATED"].includes(WorkflowRuntimeStatus[state.runtimeStatus])) {
+  if (FINISHED.includes(state.runtimeStatus)) {
     res.status(409).json({ error: "JUMP_FINISHED" });
     return true;
   }

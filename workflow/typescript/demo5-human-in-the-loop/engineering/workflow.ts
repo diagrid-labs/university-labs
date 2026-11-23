@@ -1,6 +1,5 @@
-import { TaskTimeoutError } from "@dapr/dapr";
-import type { WorkflowActivityContext, WorkflowContext } from "@dapr/dapr";
-import { setTimeout } from "node:timers/promises";
+import { TaskTimeoutError, type WorkflowActivityContext, type WorkflowContext } from "@dapr/dapr";
+import { setTimeout as sleep } from "node:timers/promises";
 
 export interface Jump {
   jumpId: string;
@@ -68,7 +67,7 @@ export async function* authorizedJumpWorkflow(ctx: WorkflowContext, jump: Jump) 
 }
 
 export async function plotCourseActivity(_ctx: WorkflowActivityContext, destination: string): Promise<Course> {
-  await setTimeout(1000);
+  await sleep(1000);
   const course = { destination, heading: 217, distanceLy: 4.2 };
   console.log(
     `engineering course plotted to ${destination} heading=${course.heading} distanceLy=${course.distanceLy.toFixed(1)}`,
@@ -77,7 +76,7 @@ export async function plotCourseActivity(_ctx: WorkflowActivityContext, destinat
 }
 
 export async function engageJumpActivity(_ctx: WorkflowActivityContext, engage: Engage) {
-  await setTimeout(1000);
+  await sleep(1000);
   // Stardate: 78000.0 at 2026-01-01T00:00:00Z, one unit per hour after that. It reads the
   // clock, which is fine in an activity but never in the workflow.
   const stardate = Math.round((78000.0 + (Math.floor(Date.now() / 1000) - 1767225600) / 3600.0) * 10) / 10;

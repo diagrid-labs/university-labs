@@ -1,7 +1,7 @@
 import type { WorkflowActivityContext, WorkflowContext } from "@dapr/dapr";
-import { setTimeout } from "node:timers/promises";
+import { setTimeout as sleep } from "node:timers/promises";
 
-export const STAGES = 5;
+const STAGES = 5;
 
 export interface Jump {
   jumpId: string;
@@ -37,6 +37,6 @@ export async function* chargeWarpCoreWorkflow(ctx: WorkflowContext, jump: Jump) 
 // An activity does the real work, and may be slow or have side effects. Dapr runs it at least
 // once: a stage that was running during a crash runs again from the start.
 export async function chargeStageActivity(_ctx: WorkflowActivityContext, charge: ChargeStage): Promise<void> {
-  await setTimeout(3000);
+  await sleep(3000);
   console.log(`engineering charge stage ${charge.stage}/${STAGES} complete for ${charge.jumpId}`);
 }

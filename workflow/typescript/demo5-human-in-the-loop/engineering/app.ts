@@ -24,6 +24,9 @@ const workflowRuntime = new WorkflowRuntime()
 // The client starts and inspects workflows.
 const workflowClient = new DaprWorkflowClient();
 
+// A finished jump can't be controlled any more.
+const FINISHED = [WorkflowRuntimeStatus.COMPLETED, WorkflowRuntimeStatus.FAILED, WorkflowRuntimeStatus.TERMINATED];
+
 const app = express();
 app.use(express.json());
 
@@ -48,17 +51,16 @@ app.get("/jumps/:jumpId", async (req: Request<{ jumpId: string }>, res: Response
   }
   // WorkflowRuntimeStatus is a numeric enum; look up its name. In-between statuses show as
   // RUNNING, so the learner only sees five statuses.
-  let status = WorkflowRuntimeStatus[state.runtimeStatus];
-  if (["PENDING", "CONTINUED_AS_NEW", "STALLED"].includes(status)) {
-    status = "RUNNING";
-  }
+  const name = WorkflowRuntimeStatus[state.runtimeStatus];
+  const status = ["PENDING", "CONTINUED_AS_NEW", "STALLED"].includes(name) ? "RUNNING" : name;
   res.json({ jumpId, status, output: state.getOutput() ?? null });
 });
 
 // Raises the external event the workflow is waiting for.
 app.post("/jumps/:jumpId/authorize", async (req: Request<{ jumpId: string }>, res: Response) => {
   const { jumpId } = req.params;
-  const authorization: Authorization = req.body ?? {};
+  // The body is not validated: the workflow reads whatever fields it gets.
+  const authorization: Partial<Authorization> = req.body ?? {};
   const state = await workflowClient.getWorkflowState(jumpId, false);
   if (!state) {
     res.status(404).json({ error: "JUMP_NOT_FOUND" });
@@ -66,7 +68,7 @@ app.post("/jumps/:jumpId/authorize", async (req: Request<{ jumpId: string }>, re
   }
   // Dapr 1.19.1 stalled a finished instance that received an event (fixed in 1.19.2).
   // Keep the guard: a clear 409 beats a silent no-op.
-  if (["COMPLETED", "FAILED", "TERMINATED"].includes(WorkflowRuntimeStatus[state.runtimeStatus])) {
+  if (FINISHED.includes(state.runtimeStatus)) {
     res.status(409).json({ error: "JUMP_FINISHED" });
     return;
   }

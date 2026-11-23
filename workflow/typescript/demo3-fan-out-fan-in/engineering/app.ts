@@ -40,10 +40,8 @@ app.get("/jumps/:jumpId", async (req: Request<{ jumpId: string }>, res: Response
   }
   // WorkflowRuntimeStatus is a numeric enum; look up its name. In-between statuses show as
   // RUNNING, so the learner only sees five statuses.
-  let status = WorkflowRuntimeStatus[state.runtimeStatus];
-  if (["PENDING", "CONTINUED_AS_NEW", "STALLED"].includes(status)) {
-    status = "RUNNING";
-  }
+  const name = WorkflowRuntimeStatus[state.runtimeStatus];
+  const status = ["PENDING", "CONTINUED_AS_NEW", "STALLED"].includes(name) ? "RUNNING" : name;
   res.json({ jumpId, status, output: state.getOutput() ?? null });
 });
 

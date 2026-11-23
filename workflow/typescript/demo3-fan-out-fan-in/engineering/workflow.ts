@@ -1,5 +1,5 @@
 import type { WorkflowActivityContext, WorkflowContext } from "@dapr/dapr";
-import { setTimeout } from "node:timers/promises";
+import { setTimeout as sleep } from "node:timers/promises";
 
 export interface Jump {
   jumpId: string;
@@ -35,7 +35,7 @@ export async function* routeScanWorkflow(ctx: WorkflowContext, _jump: Jump) {
 }
 
 export async function scanSectorActivity(_ctx: WorkflowActivityContext, array: string): Promise<SectorScan> {
-  await setTimeout(2000);
+  await sleep(2000);
   // Fixed scores, so every run and every language logs the same lines.
   const hazards: Record<string, number> = { alpha: 12, beta: 7, gamma: 31, delta: 4, epsilon: 18 };
   const hazard = hazards[array];
