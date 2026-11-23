@@ -19,6 +19,21 @@ delete_json() {
 
 legs() { count_log "$ENG" engineering "engineering $1 leg "; }
 
+# settled_legs <jumpId>: the leg count once it has stopped changing for 2 s. A leg activity that
+# was already running when the jump was paused or terminated may still log after that.
+settled_legs() {
+  local before after i=0
+  after="$(legs "$1")"
+  while [ "$i" -lt 10 ]; do
+    sleep 2
+    before="$after"
+    after="$(legs "$1")"
+    [ "$before" = "$after" ] && { echo "$after"; return 0; }
+    i=$((i + 1))
+  done
+  die "the leg count of $1 kept changing"
+}
+
 start_demo "$(demo_dir 6)" 5301 3530 50330
 wait_for_sidecar 3530
 
@@ -31,8 +46,7 @@ assert_eq "RUNNING" "$(jump_status "$A")" "the jump is RUNNING"
 RESULT="$(post_json "$APP_URL/jumps/$A/pause" "")"
 assert_eq "202 " "$RESULT" "pause answers 202"
 wait_for_status "$A" SUSPENDED 15
-sleep 1
-BEFORE="$(legs "$A")"
+BEFORE="$(settled_legs "$A")" || exit 1
 sleep 12
 assert_eq "$BEFORE" "$(legs "$A")" "no legs while the jump is paused"
 
@@ -54,8 +68,7 @@ wait_for_log "$ENG" engineering "engineering $B leg 1/10 complete" 30
 RESULT="$(post_json "$APP_URL/jumps/$B/terminate" "")"
 assert_eq "202 " "$RESULT" "terminate answers 202"
 wait_for_status "$B" TERMINATED 15
-sleep 1
-BEFORE="$(legs "$B")"
+BEFORE="$(settled_legs "$B")" || exit 1
 sleep 10
 assert_eq "$BEFORE" "$(legs "$B")" "no legs after terminate"
 
@@ -78,10 +91,14 @@ assert_eq "204 " "$RESULT" "purge answers 204"
 RESULT="$(get_json "$APP_URL/jumps/$B")"
 assert_eq '404 {"error":"JUMP_NOT_FOUND"}' "$RESULT" "GET after purge answers 404"
 
-# Clean up A through the endpoints.
+# Clean up A through the endpoints. On a slow run A may have completed by now; then terminate
+# answers 409 and A can be purged straight away.
 RESULT="$(post_json "$APP_URL/jumps/$A/terminate" "")"
-assert_eq "202 " "$RESULT" "terminate (cleanup) answers 202"
-wait_for_status "$A" TERMINATED 15
+case "$RESULT" in
+  "202 ") echo "PASS: terminate (cleanup) answers 202"; wait_for_status "$A" TERMINATED 15 ;;
+  '409 {"error":"JUMP_FINISHED"}') echo "PASS: terminate (cleanup) answers 409, $A already completed" ;;
+  *) die "terminate (cleanup) answered '$RESULT', expected 202 or 409" ;;
+esac
 RESULT="$(delete_json "$APP_URL/jumps/$A")"
 assert_eq "204 " "$RESULT" "purge (cleanup) answers 204"
 

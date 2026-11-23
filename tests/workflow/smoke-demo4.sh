@@ -50,6 +50,9 @@ done
 echo "PASS: status stays RUNNING while the monitor waits"
 
 # The crash: stop the app and its sidecar while the durable timer after check 2 is waiting.
+# Wait a second first, so check 2's result has reached the sidecar; otherwise the activity runs
+# (and logs) again after the restart. The timer has 5 seconds left, so the stop still hits it.
+sleep 1
 stop_demo
 start_demo "$(demo_dir 4)" 5301 3530 50330
 wait_for_sidecar 3530
@@ -58,12 +61,12 @@ done_status="$(poll_until_done "$ID" "$(( $(date +%s) + 90 ))")"
 assert_eq "COMPLETED" "$done_status" "monitor completes after the restart, status RUNNING until then"
 
 # The restart splits the logs over two files, so count over all of them.
-all_logs="$(ls "$(demo_dir 4)/$ENG"/.dapr/logs/engineering_app_*.log)"
+all_logs() { cat "$(demo_dir 4)/$ENG"/.dapr/logs/engineering_app_*.log; }
 for line in "1:1240" "2:1180" "3:1120" "4:1060" "5:1000"; do
-  count="$(cat $all_logs | grep -cF "engineering core temperature check ${line%%:*}: ${line##*:}K")"
+  count="$(all_logs | grep -cF "engineering core temperature check ${line%%:*}: ${line##*:}K")"
   assert_eq "1" "$count" "check ${line%%:*} (${line##*:}K) logged once across the restart"
 done
-assert_eq "0" "$(cat $all_logs | grep -cF "engineering core temperature check 6:")" "no check after the core is stable"
+assert_eq "0" "$(all_logs | grep -cF "engineering core temperature check 6:")" "no check after the core is stable"
 assert_eq '{"stable":true,"checks":5,"coreTempK":1000}' "$(jump_output "$ID")" "workflow output"
 
 echo "Demo 4 ($LANG_ARG) smoke test passed"
