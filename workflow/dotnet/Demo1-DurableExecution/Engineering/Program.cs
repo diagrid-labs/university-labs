@@ -16,7 +16,7 @@ app.UseExceptionHandler();
 
 app.MapPost("/jumps", async (JumpRequest? request, DaprWorkflowClient workflowClient) =>
 {
-    var jumpId = request?.JumpId ?? $"jump-{Guid.NewGuid().ToString("N")[..8]}";
+    var jumpId = string.IsNullOrEmpty(request?.JumpId) ? $"jump-{Guid.NewGuid().ToString("N")[..8]}" : request.JumpId;
     // The jump ID becomes the workflow instance ID. The call returns as soon as the sidecar has
     // scheduled the workflow; the workflow itself runs in the background.
     await workflowClient.ScheduleNewWorkflowAsync(nameof(ChargeWarpCoreWorkflow), jumpId, new Jump(jumpId));

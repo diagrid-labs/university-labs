@@ -5,8 +5,8 @@ import { chargeStageActivity, chargeWarpCoreWorkflow, type Jump } from "./workfl
 
 // Both fields are optional. Demo 1 accepts a destination and ignores it; later demos fly there.
 interface JumpRequest {
-  jumpId?: string;
-  destination?: string;
+  jumpId?: string | null;
+  destination?: string | null;
 }
 
 // The runtime connects to the sidecar and runs the workflow and activity code it is sent. Each
@@ -21,7 +21,10 @@ const app = express();
 app.use(express.json());
 
 app.post("/jumps", async (req: Request, res: Response) => {
-  const { jumpId = `jump-${randomUUID().slice(0, 8)}` }: JumpRequest = req.body ?? {};
+  const body: JumpRequest = req.body ?? {};
+  const jumpId = body.jumpId || `jump-${randomUUID().slice(0, 8)}`;
+  // Demo 1 doesn't use the destination; later demos pass it to the workflow.
+  const destination = body.destination || "Vesper Reach";
   const jump: Jump = { jumpId };
   // The jump ID becomes the workflow instance ID. The call returns as soon as the sidecar has
   // scheduled the workflow; the workflow itself runs in the background.
@@ -46,13 +49,18 @@ app.get("/jumps/:jumpId", async (req: Request<{ jumpId: string }>, res: Response
   res.json({ jumpId, status, output: state.getOutput() ?? null });
 });
 
-// One error handler for every route: Express 5 passes errors thrown in async handlers here, and
-// a failed workflow call becomes the agreed 500.
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+// One error handler for every route: Express 5 passes errors thrown in async handlers here.
+// Errors Express raises itself, such as a malformed JSON body, carry their own status and go to
+// Express's default handler. Anything else is a failed workflow call and becomes the agreed 500.
+app.use((err: Error & { status?: number }, _req: Request, res: Response, next: NextFunction) => {
+  if (err.status) {
+    next(err);
+    return;
+  }
   console.warn(`engineering workflow call failed: ${err.message}`);
   res.status(500).json({ error: "WORKFLOW_ERROR" });
 });
 
 // Start the runtime before taking requests, so a jump can run as soon as it is scheduled.
 await workflowRuntime.start();
-app.listen(5301, () => console.log("engineering listening on port 5301"));
+app.listen(5301);

@@ -19,7 +19,7 @@ class JumpController {
     // Both fields are optional. Demo 1 accepts a destination and ignores it; later demos fly there.
     record JumpRequest(String jumpId, String destination) {
         JumpRequest {
-            destination = destination != null ? destination : "Vesper Reach";
+            destination = destination != null && !destination.isEmpty() ? destination : "Vesper Reach";
         }
     }
 
@@ -38,7 +38,7 @@ class JumpController {
     @PostMapping
     @ResponseStatus(HttpStatus.ACCEPTED)
     JumpStarted startJump(@RequestBody(required = false) JumpRequest request) {
-        String jumpId = request != null && request.jumpId() != null
+        String jumpId = request != null && request.jumpId() != null && !request.jumpId().isEmpty()
                 ? request.jumpId()
                 : "jump-" + UUID.randomUUID().toString().substring(0, 8);
         // The jump ID becomes the workflow instance ID. The call returns as soon as the sidecar

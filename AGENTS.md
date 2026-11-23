@@ -152,6 +152,7 @@ Write each language the way a developer of that language would, not as a transla
   - Choose status codes on purpose. Dapr retries on non-2xx, so a cron tick or an unreadable message answers 200 or `DROP` when a retry can't help.
 - **Validate input the same way everywhere** (same rules, same limits). Use parameter placeholders such as `$1` in SQL, never string concatenation.
 - **Stateful demos start clean.** An app that writes to a store clears its own data on startup, so earlier runs, or other languages, don't leak in.
+  - Exception: workflow demos don't purge on startup, because that would break Demo 1's restart lesson. The README's clean-up step and the smoke tests' EXIT trap handle leftover workflows.
 
 ## Verifying changes
 

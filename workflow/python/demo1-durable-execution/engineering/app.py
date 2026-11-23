@@ -62,11 +62,11 @@ def get_workflow_client(request: Request) -> DaprWorkflowClient:
 WorkflowClientDep = Annotated[DaprWorkflowClient, Depends(get_workflow_client)]
 
 
-# A failed workflow call surfaces as a gRPC error (the async client raises AioRpcError). One
-# handler turns it into the same 500 for every endpoint, so the endpoints only describe the
-# happy path.
-@app.exception_handler(grpc.aio.AioRpcError)
-async def workflow_failed(_: Request, error: grpc.aio.AioRpcError) -> JSONResponse:
+# A failed workflow call surfaces as a gRPC error. One handler turns it into the same 500 for
+# every endpoint, so the endpoints only describe the happy path.
+@app.exception_handler(grpc.RpcError)
+async def workflow_failed(_: Request, error: grpc.RpcError) -> JSONResponse:
+    # The client raises grpc.aio.AioRpcError; details() is its one-line message.
     logger.warning("engineering workflow call failed: %s", error.details())
     return JSONResponse({"error": "WORKFLOW_ERROR"}, status_code=500)
 

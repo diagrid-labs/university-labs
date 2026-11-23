@@ -353,15 +353,41 @@ print(next((r["runtimeStatus"] for r in rows if r["instanceID"] == sys.argv[1]),
 ' "$1"
 }
 
-# cleanup_jump <jumpId>: terminates the jump if it is still running or suspended, then
-# purges it. Uses the Dapr CLI, which talks to the running sidecar. A finished jump is never
-# terminated: a control call on a finished workflow stalls it (Dapr 1.19.1), and a stalled
-# instance can only be purged with --force.
+# with_timeout <seconds> <command...>: runs a command and kills it if it hasn't finished in
+# time (macOS has no `timeout`). Returns the command's exit code, or 1 if it was killed.
+with_timeout() {
+  local secs="$1" pid i=0
+  shift
+  "$@" >/dev/null 2>&1 &
+  pid=$!
+  while kill -0 "$pid" 2>/dev/null; do
+    if [ "$i" -ge "$secs" ]; then
+      kill "$pid" >/dev/null 2>&1
+      wait "$pid" >/dev/null 2>&1
+      return 1
+    fi
+    sleep 1
+    i=$((i + 1))
+  done
+  wait "$pid"
+}
+
+# cleanup_jump <jumpId>: removes the jump from the state store. Uses the Dapr CLI, which talks
+# to the running sidecar. A running or suspended jump is terminated first, then purged. A
+# PENDING jump (scheduled, never started) can hang a terminate, so it is force-purged. A
+# finished jump is never terminated: a control call on a finished workflow stalls it (Dapr
+# 1.19.1), and a stalled instance can only be purged with --force.
 cleanup_jump() {
   local id="$1" i=0
   case "$(cli_status "$id")" in
-    RUNNING|SUSPENDED|PENDING)
-      dapr workflow terminate "$id" -a engineering >/dev/null 2>&1
+    "") return 0 ;;
+    PENDING)
+      with_timeout 15 dapr workflow purge "$id" --force -a engineering \
+        || echo "WARNING: could not purge $id; run: dapr workflow purge $id --force -a engineering" >&2
+      return 0
+      ;;
+    RUNNING|SUSPENDED)
+      with_timeout 15 dapr workflow terminate "$id" -a engineering
       # Terminate is asynchronous; purge only works once the jump is TERMINATED.
       while [ "$i" -lt 15 ] && [ "$(cli_status "$id")" != "TERMINATED" ]; do
         sleep 1
@@ -369,7 +395,7 @@ cleanup_jump() {
       done
       ;;
   esac
-  dapr workflow purge "$id" -a engineering >/dev/null 2>&1 \
-    || echo "WARNING: could not purge $id; run: dapr workflow purge $id -a engineering --force" >&2
+  with_timeout 15 dapr workflow purge "$id" -a engineering \
+    || echo "WARNING: could not purge $id; run: dapr workflow purge $id --force -a engineering" >&2
   return 0
 }
