@@ -19,7 +19,7 @@ In Instruqt the sandbox setup script prepares everything below for you. Use this
   - .NET SDK 10
   - Python 3.12 or later with [uv](https://docs.astral.sh/uv/)
   - Java 17 with Maven (the Java demos use Spring Boot 4.0.8)
-  - Node.js 24. Run `npm install` once in each TypeScript demo's `engineering` folder before the first `dapr run`.
+  - Node.js 24. Run `npm ci` once in each TypeScript demo's `engineering` folder before the first `dapr run`. It installs the exact versions in the committed `package-lock.json`.
 
 The shell commands below assume a POSIX shell (Git Bash, WSL, macOS or Linux). The track itself runs on a Linux sandbox.
 
@@ -527,8 +527,8 @@ The Demo 2 test checks that the four log lines come in chain order, that the out
 
 The Demo 3 test checks that all five sensor arrays log their hazard score, that the output is `{"routeRisk":31,"verdict":"CLEAR"}`, and that the time from `POST` to `COMPLETED` is under 6 seconds, which five scans in a row (10 seconds or more) couldn't meet.
 
-The Demo 4 test stops the demo during the timer wait after check 2, starts it again and checks that the monitor completes, that checks 1 to 5 are each logged exactly once across the restart, that the status is `RUNNING` the whole time and that the output is `{"stable":true,"checks":5,"coreTempK":1000}`.
+The Demo 4 test stops the demo during the timer wait after check 2, starts it again and checks that the monitor completes, that checks 1 to 5 are each logged exactly once across the restart, that the status is `RUNNING` while it runs and that the output is `{"stable":true,"checks":5,"coreTempK":1000}`.
 
 The Demo 5 test starts three jumps. It approves one, denies one and leaves one unanswered, and checks the three outputs (`JUMPED`, `DENIED`, `ABORTED_NO_AUTHORIZATION`), that the denied jump doesn't engage and that each jump logs the awaiting line exactly once. It also checks that authorizing an unknown jump answers 404 and that authorizing the timed-out jump answers 409 and leaves its output unchanged. The timeout path makes the test take about a minute per language.
 
-The Demo 6 test pauses a jump, checks that it is `SUSPENDED` and logs no legs for 12 seconds, resumes it and checks that the next leg follows. It purges the running jump and expects `500` with the jump still `RUNNING`. It terminates a second jump, checks that no legs follow and that pause answers `409` while `GET` still answers, purges it (`204`, then `404`), and checks that pause, resume, terminate and purge on an unknown jump answer `404`.
+The Demo 6 test pauses a jump, checks that it is `SUSPENDED` and, once a leg that was already running has logged, logs no legs for 12 seconds, resumes it and checks that the next leg follows. It purges the running jump and expects `500` with the jump still `RUNNING`. It terminates a second jump, checks that no legs follow and that pause answers `409` while `GET` still answers, purges it (`204`, then `404`), and checks that pause, resume, terminate and purge on an unknown jump answer `404`.
