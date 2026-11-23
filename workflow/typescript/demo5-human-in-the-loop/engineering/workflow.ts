@@ -1,3 +1,4 @@
+import { TaskTimeoutError } from "@dapr/dapr";
 import type { WorkflowActivityContext, WorkflowContext } from "@dapr/dapr";
 import { setTimeout } from "node:timers/promises";
 
@@ -42,7 +43,11 @@ export async function* authorizedJumpWorkflow(ctx: WorkflowContext, jump: Jump) 
   let authorization: Authorization;
   try {
     authorization = yield ctx.waitForExternalEvent("jump-authorized", { timeoutInSeconds: 60 });
-  } catch {
+  } catch (err) {
+    // Only a timeout means nobody answered; anything else is a real error.
+    if (!(err instanceof TaskTimeoutError)) {
+      throw err;
+    }
     if (!ctx.isReplaying()) {
       console.log(`engineering ${jump.jumpId} jump aborted, no authorization`);
     }

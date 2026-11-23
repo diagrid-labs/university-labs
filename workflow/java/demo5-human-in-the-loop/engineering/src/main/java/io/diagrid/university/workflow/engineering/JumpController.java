@@ -41,7 +41,7 @@ class JumpController {
         String jumpId = request != null && request.jumpId() != null && !request.jumpId().isEmpty()
                 ? request.jumpId()
                 : "jump-" + UUID.randomUUID().toString().substring(0, 8);
-        String destination = request != null ? request.destination() : "Vesper Reach";
+        String destination = (request != null ? request : new JumpRequest(null, null)).destination();
         // The jump ID becomes the workflow instance ID. The call returns as soon as the sidecar
         // has scheduled the workflow; the workflow itself runs in the background.
         workflowClient.scheduleNewWorkflow("AuthorizedJumpWorkflow", new AuthorizedJumpWorkflow.Jump(jumpId, destination), jumpId);

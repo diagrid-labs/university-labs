@@ -13,7 +13,7 @@ prepare_app "$(demo_dir 1)/$ENG"
 start_demo "$(demo_dir 1)" 5301 3530 50330
 wait_for_sidecar 3530
 
-assert_eq "404" "$(get_json http://localhost:5301/jumps/does-not-exist | cut -d' ' -f1)" "unknown jump is 404"
+assert_eq "404" "$(get_json $APP_URL/jumps/does-not-exist | cut -d' ' -f1)" "unknown jump is 404"
 
 ID="$(start_jump "{\"jumpId\":\"$(new_jump_id 1)\"}")" || exit 1
 JUMPS="$ID"

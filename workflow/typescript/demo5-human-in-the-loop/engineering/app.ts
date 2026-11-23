@@ -58,7 +58,7 @@ app.get("/jumps/:jumpId", async (req: Request<{ jumpId: string }>, res: Response
 // Raises the external event the workflow is waiting for.
 app.post("/jumps/:jumpId/authorize", async (req: Request<{ jumpId: string }>, res: Response) => {
   const { jumpId } = req.params;
-  const authorization: Authorization = req.body;
+  const authorization: Authorization = req.body ?? {};
   const state = await workflowClient.getWorkflowState(jumpId, false);
   if (!state) {
     res.status(404).json({ error: "JUMP_NOT_FOUND" });
@@ -87,4 +87,4 @@ app.use((err: Error & { status?: number }, _req: Request, res: Response, next: N
 
 // Start the runtime before taking requests, so a jump can run as soon as it is scheduled.
 await workflowRuntime.start();
-app.listen(5301);
+app.listen(5301, "127.0.0.1");

@@ -99,7 +99,7 @@ async def get_jump(jump_id: str, client: WorkflowClientDep):
 
 # Pause, resume and terminate read the state first. Dapr 1.19.1 stalls a finished instance that
 # receives a control call, so those calls are not made for one.
-async def find_unfinished(client: DaprWorkflowClient, jump_id: str) -> JSONResponse | None:
+async def reject_finished(client: DaprWorkflowClient, jump_id: str) -> JSONResponse | None:
     state = await client.get_workflow_state(jump_id)
     if state is None:
         return JSONResponse({"error": "JUMP_NOT_FOUND"}, status_code=404)
@@ -111,7 +111,7 @@ async def find_unfinished(client: DaprWorkflowClient, jump_id: str) -> JSONRespo
 # Each management endpoint is one call on the workflow client.
 @app.post("/jumps/{jump_id}/pause")
 async def pause_jump(jump_id: str, client: WorkflowClientDep):
-    if rejected := await find_unfinished(client, jump_id):
+    if rejected := await reject_finished(client, jump_id):
         return rejected
     await client.pause_workflow(jump_id)
     return Response(status_code=202)
@@ -119,7 +119,7 @@ async def pause_jump(jump_id: str, client: WorkflowClientDep):
 
 @app.post("/jumps/{jump_id}/resume")
 async def resume_jump(jump_id: str, client: WorkflowClientDep):
-    if rejected := await find_unfinished(client, jump_id):
+    if rejected := await reject_finished(client, jump_id):
         return rejected
     await client.resume_workflow(jump_id)
     return Response(status_code=202)
@@ -127,7 +127,7 @@ async def resume_jump(jump_id: str, client: WorkflowClientDep):
 
 @app.post("/jumps/{jump_id}/terminate")
 async def terminate_jump(jump_id: str, client: WorkflowClientDep):
-    if rejected := await find_unfinished(client, jump_id):
+    if rejected := await reject_finished(client, jump_id):
         return rejected
     await client.terminate_workflow(jump_id)
     return Response(status_code=202)
