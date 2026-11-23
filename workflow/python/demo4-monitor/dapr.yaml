@@ -1,0 +1,13 @@
+version: 1
+common:
+  # The state store that holds the workflow history, shared by this language's demos.
+  resourcesPaths:
+    - ../resources
+apps:
+  - appID: engineering
+    appDirPath: ./engineering
+    appPort: 5301
+    daprHTTPPort: 3530
+    # The workflow client and the workflow runtime talk to the sidecar over gRPC.
+    daprGRPCPort: 50330
+    command: ["uv", "run", "uvicorn", "app:app", "--host", "127.0.0.1", "--port", "5301"]

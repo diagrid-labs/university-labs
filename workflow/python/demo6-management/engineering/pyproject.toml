@@ -1,0 +1,10 @@
+[project]
+name = "engineering"
+version = "0.1.0"
+description = "Runs a 10-leg warp jump that you can pause, resume, terminate and purge, as a Dapr workflow"
+requires-python = ">=3.12"
+dependencies = [
+    "dapr==1.19.0",
+    "fastapi==0.165.0",
+    "uvicorn==0.54.0",
+]

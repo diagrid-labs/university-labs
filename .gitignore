@@ -175,6 +175,14 @@ dapr-101/**/node_modules/
 dapr-101/**/.venv/
 dapr-101/**/.dapr/
 
+# Dapr workflow track: build output, dependencies and `dapr run -f .` logs.
+workflow/**/bin/
+workflow/**/obj/
+workflow/**/target/
+workflow/**/node_modules/
+workflow/**/.venv/
+workflow/**/.dapr/
+
 # Agent tracks: `dapr run -f` logs.
 deepagents/**/.dapr/
 langgraph/**/.dapr/

@@ -1,0 +1,18 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  # Dapr Workflow keeps every workflow's history in the actor state store. The app never
+  # uses this name: the sidecar finds the store through actorStateStore below.
+  name: statestore
+spec:
+  type: state.redis
+  version: v1
+  metadata:
+  # The Redis container that `dapr init` starts. Local only, no password.
+  - name: redisHost
+    value: localhost:6379
+  - name: redisPassword
+    value: ""
+  # Workflows run on Dapr actors, which need a state store marked as the actor state store.
+  - name: actorStateStore
+    value: "true"
