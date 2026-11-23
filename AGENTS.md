@@ -48,8 +48,8 @@ Learners read this code, so clarity matters more than cleverness. Every demo mus
       engineering/
 ```
 
-- **Folder names follow each language's conventions.** .NET uses PascalCase (`Demo1-CronTrigger/Engineering`). Python and Java use kebab-case (`demo1-cron-trigger/engineering`), and their app folder names are the app IDs.
-- **The languages match.** The same demo in each language has the same app IDs, app ports, Dapr HTTP ports, component names, endpoints, JSON contract (keys, key order, error bodies) and log lines. The README is written once for all three languages, and the smoke tests assert on these values.
+- **Folder names follow each language's conventions.** .NET uses PascalCase (`Demo1-CronTrigger/Engineering`). Python, Java and TypeScript use kebab-case (`demo1-cron-trigger/engineering`), and their app folder names are the app IDs.
+- **The languages match.** The same demo in each language has the same app IDs, app ports, Dapr HTTP ports, component names, endpoints, JSON contract (keys, key order, error bodies) and log lines. The README is written once for all of the track's languages, and the smoke tests assert on these values.
 - **Ports.** Each track has its own range, and one demo runs at a time. Pub/sub apps use 5101–5103 with Dapr HTTP ports 3510–3512. Bindings apps use 5201–5202 with 3520–3521. Workflow apps use 5301 with 3530 (and Dapr gRPC port 50330, which the workflow SDKs use). A new track takes the next block (54xx and 354x).
 - **Components.** Components shared by every demo in a language go in `<lang>/resources/`. A demo's own components and subscriptions go in `<demo>/resources/`. Apps only use a component's name, such as `pubsub` or `ship-db`, and never the technology behind it. That keeps the swap-the-provider demos honest.
 - **A theme.** Each track tells a small story with fictional names, for example orders in pub/sub and a starship's engineering deck in bindings. Keep the names fictional. Don't use trademarked characters or ships.
@@ -150,7 +150,7 @@ Write each language the way a developer of that language would, not as a transla
   - Return the agreed error body, such as `{"error": "BINDING_FAILED"}` or `{"error": "INVALID_ORDER"}`, with a fitting status.
   - Log the warning line the README documents.
   - Choose status codes on purpose. Dapr retries on non-2xx, so a cron tick or an unreadable message answers 200 or `DROP` when a retry can't help.
-- **Validate input the same way everywhere** (same rules, same limits). Use parameter placeholders such as `$1` in SQL, never string concatenation.
+- **Validate input the same way everywhere** (same rules, same limits). Exception: the workflow track deliberately keeps validation minimal (defaults for missing fields only). Use parameter placeholders such as `$1` in SQL, never string concatenation.
 - **Stateful demos start clean.** An app that writes to a store clears its own data on startup, so earlier runs, or other languages, don't leak in.
   - Exception: workflow demos don't purge on startup, because that would break Demo 1's restart lesson. The README's clean-up step and the smoke tests' EXIT trap handle leftover workflows.
 

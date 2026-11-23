@@ -74,7 +74,7 @@ The apps log the same lines in every language. Each language adds its own prefix
 
 Workflow state lives in Redis, which every language and demo shares, and every demo uses the app ID `engineering`. Two things follow from that.
 
-**Reusing a jump ID.** The `curl` commands below use readable IDs such as `jump-001`. Starting a jump with the ID of one that has finished (`COMPLETED`, `FAILED` or `TERMINATED`) starts it over: the old history and result are replaced. Starting one with the ID of a jump that is still running answers `500 {"error": "WORKFLOW_ERROR"}` and the app logs:
+**Reusing a jump ID.** The `curl` commands below use readable IDs such as `jump-001`. Starting a jump with the ID of one that has finished (`COMPLETED`, `FAILED` or `TERMINATED`) starts it over: the old history and result are replaced. Starting one with the ID of a jump that is still running answers `500 {"error": "WORKFLOW_ERROR"}` and the app logs a line that contains:
 
 ```text
 engineering workflow call failed: ... an active workflow with ID 'jump-001' already exists
@@ -294,7 +294,7 @@ curl -s http://localhost:5301/jumps/jump-001
 Two things to notice:
 
 1. **The whole scan takes about 2 seconds, not 10.** Five scans of 2 seconds in a row would take 10 seconds. The runtime runs the five activities in parallel, and the workflow continues as soon as the slowest one is done.
-2. **The log order changes from run to run.** The activities run at the same time, so whichever finishes first logs first. Start a second jump (`jump-002`) and compare. The workflow output doesn't change, because the results come back in the order the activities were scheduled, not the order they finished.
+2. **The log order changes from run to run.** The activities run at the same time, so whichever finishes first logs first. Start a second jump (`jump-002`) and compare. The workflow output doesn't change, because it is computed from all five results (the maximum and the verdict). The results also keep their scheduling order, not the order the activities finished.
 
 **Clean up.** Purge the finished jumps before you stop the demo:
 
@@ -341,7 +341,7 @@ engineering core temperature check 4: 1060K
 engineering core temperature check 5: 1000K
 ```
 
-While the monitor runs, the status is `RUNNING`, also in the moments between two checks. The workflow state shows the in-between statuses (`CONTINUED_AS_NEW`, `PENDING`) as `RUNNING` too.
+While the monitor runs, the status is `RUNNING`, also in the moments between two checks. The app's GET endpoint shows the in-between statuses (`CONTINUED_AS_NEW`, `PENDING`) as `RUNNING` too.
 
 ```bash
 curl -s http://localhost:5301/jumps/jump-001
@@ -351,7 +351,7 @@ curl -s http://localhost:5301/jumps/jump-001
 {"jumpId":"jump-001","status":"COMPLETED","output":{"stable":true,"checks":5,"coreTempK":1000}}
 ```
 
-**Stop the app during a wait.** Start a new jump (`jump-002`). When `check 2` is logged, stop the demo with `Ctrl+C` while the 5-second timer is waiting, then run `dapr run -f .` again. You don't send any request. Within a few seconds of the app being ready, the workflow continues with check 3. Check 1 and 2 are not repeated, because the timer and the workflow's progress are stored by Dapr, not by the app.
+**Stop the app during a wait.** Start a new jump (`jump-002`). When `check 2` is logged, stop the demo with `Ctrl+C` while the 5-second timer is waiting, then run `dapr run -f .` again. You don't send any request. Within a few seconds of the app being ready, the workflow continues with check 3. Check 1 and 2 are not repeated (apart from the at-least-once case in Demo 1: a check that was running at the stop can run again), because the timer and the workflow's progress are stored by Dapr, not by the app.
 
 **Clean up.** Purge the finished jumps before you stop the demo:
 
@@ -406,6 +406,8 @@ curl -s http://localhost:5301/jumps/jump-001
 ```
 
 Now try to authorize `jump-003` anyway. The jump is finished, so the app answers `409 {"error":"JUMP_FINISHED"}` and the output stays as it was.
+
+The authorize call doesn't validate its body. A malformed or missing body is answered by each language's framework (400 or 422) and isn't checked any further.
 
 **Stop the app during the wait.** Start a new jump (`jump-004`). When the awaiting line is logged, stop the demo with `Ctrl+C`, run `dapr run -f .` again and then authorize the jump. The workflow continues as if nothing happened, and the awaiting line is not logged a second time. The wait, and its 60-second timeout, are stored by Dapr, not by the app.
 
@@ -466,7 +468,7 @@ curl -s http://localhost:5301/jumps/jump-001
 curl -s -X DELETE http://localhost:5301/jumps/jump-001
 ```
 
-The answer is `500 {"error":"WORKFLOW_ERROR"}`, and the app logs a warning that ends with `orchestration has not yet completed`. The jump is still `RUNNING`.
+The answer is `500 {"error":"WORKFLOW_ERROR"}`, and the app logs a warning that contains `orchestration has not yet completed`. The jump is still `RUNNING`.
 
 **Terminate.** Start a second jump, `jump-002`, and terminate it. The status becomes `TERMINATED` and no more legs are logged:
 
