@@ -162,6 +162,88 @@ If you use the [Dapr Dev Dashboard](https://docs.diagrid.io/develop/local-develo
 dapr workflow purge jump-001 -a engineering
 ```
 
+### Demo 2: task chaining
+
+`JumpWorkflow` runs four activities in sequence, and each activity's result is the next one's input:
+
+| Step | Activity | Gets | Returns |
+|---|---|---|---|
+| 1 | `PlotCourseActivity` | the destination | `{"destination": "Vesper Reach", "heading": 217, "distanceLy": 4.2}` |
+| 2 | `ChargeWarpCoreActivity` | the course | `{"warpFactor": 6}` |
+| 3 | `AlignNavArrayActivity` | the warp factor | `{"aligned": true}` |
+| 4 | `EngageJumpActivity` | the course and the warp factor | `{"arrivedAt": "Vesper Reach", "stardate": 85831.8}` |
+
+Each activity takes about a second, so you can watch the chain progress. The workflow's output is the result of the last step. The heading, distance and warp factor are fixed values, so every run and every language logs the same lines. Only the stardate changes: `EngageJumpActivity` computes it from the clock, which is fine in an activity but never in the workflow.
+
+This is the chain pattern: in the workflow code it is just a few lines in a row, with each result passed to the next call. Because every activity result is saved in the workflow's history, a crash between two steps doesn't redo the steps that finished (the Demo 1 lesson, now with different activities).
+
+Run the demo, then start a jump in a second terminal:
+
+```bash
+curl -s -X POST http://localhost:5301/jumps -H 'Content-Type: application/json' -d '{"jumpId": "jump-001", "destination": "Vesper Reach"}'
+```
+
+```json
+{"jumpId":"jump-001"}
+```
+
+`engineering` logs, one line about every second:
+
+```text
+engineering course plotted to Vesper Reach heading=217 distanceLy=4.2
+engineering warp core charged to warp 6
+engineering nav array aligned
+engineering jump complete, arrived at Vesper Reach
+```
+
+After about four seconds:
+
+```bash
+curl -s http://localhost:5301/jumps/jump-001
+```
+
+```json
+{"jumpId":"jump-001","status":"COMPLETED","output":{"arrivedAt":"Vesper Reach","stardate":85831.8}}
+```
+
+Your stardate will differ. A whole number may show without the `.0`, depending on the language.
+
+Try the defaults. Leave out the body, or the destination, and the jump flies to Vesper Reach. A `null` or empty destination does the same:
+
+```bash
+curl -s -X POST http://localhost:5301/jumps -H 'Content-Type: application/json' -d '{}'
+```
+
+```json
+{"jumpId":"jump-3f9c2a1b"}
+```
+
+Try another destination, and watch it travel down the chain:
+
+```bash
+curl -s -X POST http://localhost:5301/jumps -H 'Content-Type: application/json' -d '{"jumpId": "jump-002", "destination": "Calder Station"}'
+```
+
+Finally, reuse an ID. While `jump-003` is still running, starting it again fails:
+
+```bash
+curl -s -X POST http://localhost:5301/jumps -H 'Content-Type: application/json' -d '{"jumpId": "jump-003"}'
+curl -s -X POST http://localhost:5301/jumps -H 'Content-Type: application/json' -d '{"jumpId": "jump-003"}'
+```
+
+```json
+{"jumpId":"jump-003"}
+{"error":"WORKFLOW_ERROR"}
+```
+
+Once `jump-003` has completed, the same call answers `202` and the jump starts over: the chain runs again and the old result is replaced.
+
+**Clean up.** Purge the finished jumps (or use the steps in [Fresh IDs and leftover workflows](#fresh-ids-and-leftover-workflows)) before you stop the demo:
+
+```bash
+dapr workflow purge --all -a engineering
+```
+
 ## Smoke tests
 
 `tests/workflow` holds one script per demo. They start the demo, drive it with `curl`, check the logs and the workflow output, and stop it again. Each test uses fresh jump IDs and terminates and purges its jumps before it stops the demo, so Redis is left clean.
@@ -172,3 +254,5 @@ bash tests/workflow/run-all.sh --demo 1 --lang python
 ```
 
 The Demo 1 test stops the demo after stage 2, starts it again and checks that the jump completes without repeating stage 1 or the replay-safe log line.
+
+The Demo 2 test checks that the four log lines come in chain order, that the output has the expected shape, that a missing, `null` or empty destination plots to Vesper Reach, and what happens when a jump ID is reused while the jump is running and after it has finished.
