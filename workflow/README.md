@@ -55,6 +55,8 @@ Stop it with Ctrl+C, which stops both the app and its sidecar. Run the `curl` co
 
 Each language's `resources/statestore.yaml` points at the `dapr init` Redis and sets `actorStateStore: "true"`: Dapr Workflow is built on actors, and keeps each workflow's history in the actor state store. The app never uses the component's name.
 
+The sidecar needs that Redis container to start. If Redis isn't running, the sidecar exits with `Failed to init component statestore` in its log, and no workflow can run until you start Redis (`docker start dapr_redis`) and run the demo again.
+
 ### The endpoints
 
 The apps expose a few HTTP endpoints so you can drive the workflows with `curl`. Each one is a thin shell around the SDK's workflow client. Every demo has these two:
