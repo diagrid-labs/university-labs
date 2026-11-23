@@ -71,6 +71,19 @@ async def workflow_failed(_: Request, error: grpc.RpcError) -> JSONResponse:
     return JSONResponse({"error": "WORKFLOW_ERROR"}, status_code=500)
 
 
+# A jump that doesn't exist (404) or is already finished (409). Endpoints raise it, and one
+# handler turns it into the error body, the same way as the gRPC handler above.
+class JumpError(Exception):
+    def __init__(self, code: str, status_code: int):
+        self.code = code
+        self.status_code = status_code
+
+
+@app.exception_handler(JumpError)
+async def jump_error(_: Request, error: JumpError) -> JSONResponse:
+    return JSONResponse({"error": error.code}, status_code=error.status_code)
+
+
 @app.post("/jumps", status_code=202, response_model=JumpStarted)
 async def start_jump(client: WorkflowClientDep, body: JumpRequest | None = None):
     jump_id = (body and body.jump_id) or f"jump-{uuid.uuid4().hex[:8]}"
@@ -83,11 +96,11 @@ async def start_jump(client: WorkflowClientDep, body: JumpRequest | None = None)
 
 
 @app.get("/jumps/{jump_id}", response_model=JumpStatus)
-async def get_jump(jump_id: str, client: WorkflowClientDep):
+async def get_jump(jump_id: str, client: WorkflowClientDep) -> JumpStatus:
     # The sidecar reads the workflow's state from the state store.
     state = await client.get_workflow_state(jump_id)
     if state is None:
-        return JSONResponse({"error": "JUMP_NOT_FOUND"}, status_code=404)
+        raise JumpError("JUMP_NOT_FOUND", 404)
     status = state.runtime_status.name
     # In-between statuses show as RUNNING, so the learner only sees five statuses.
     if status in ("PENDING", "CONTINUED_AS_NEW", "STALLED"):
