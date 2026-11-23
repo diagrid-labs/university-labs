@@ -415,6 +415,103 @@ dapr workflow terminate jump-004 -a engineering
 dapr workflow purge --all -a engineering
 ```
 
+### Demo 6: management
+
+`LongRangeJumpWorkflow` is a jump long enough to manage by hand. It has 10 legs. Each leg is one call to `EngageLegActivity`, which logs `engineering jump-001 leg 4/10 complete`, followed by a 5-second durable timer. A whole jump takes about a minute, and ends with `{"status": "JUMPED", "arrivedAt": "Vesper Reach"}`.
+
+The demo adds four endpoints. Each one is a single call on the SDK's workflow client:
+
+| Method and route | What it does |
+|---|---|
+| `POST /jumps/{jumpId}/pause` | Suspends the workflow. Answers `202`. |
+| `POST /jumps/{jumpId}/resume` | Resumes a suspended workflow. Answers `202`. |
+| `POST /jumps/{jumpId}/terminate` | Terminates the workflow. Answers `202`. |
+| `DELETE /jumps/{jumpId}` | Purges the workflow's history from the state store. Answers `204`. |
+
+An unknown ID answers `404 {"error": "JUMP_NOT_FOUND"}` on all four. Pause, resume and terminate on a jump that has finished answer `409 {"error": "JUMP_FINISHED"}` and make no call to Dapr: on Dapr 1.19.1 a control call on a finished workflow leaves it in a stalled state.
+
+Start a jump and watch the legs in the `engineering` log:
+
+```bash
+curl -s -X POST http://localhost:5301/jumps -H 'Content-Type: application/json' -d '{"jumpId": "jump-001"}'
+```
+
+**Pause.** The status becomes `SUSPENDED` and the legs stop. Wait a while and check that no new leg line appears:
+
+```bash
+curl -s -X POST http://localhost:5301/jumps/jump-001/pause
+curl -s http://localhost:5301/jumps/jump-001
+```
+
+```json
+{"jumpId":"jump-001","status":"SUSPENDED","output":null}
+```
+
+**Resume.** The status is `RUNNING` again and the legs continue with the next one, not from the start:
+
+```bash
+curl -s -X POST http://localhost:5301/jumps/jump-001/resume
+curl -s http://localhost:5301/jumps/jump-001
+```
+
+```json
+{"jumpId":"jump-001","status":"RUNNING","output":null}
+```
+
+**Purge a running jump.** Purge removes the history, which Dapr only allows for a finished workflow. Try it on `jump-001` while it runs:
+
+```bash
+curl -s -X DELETE http://localhost:5301/jumps/jump-001
+```
+
+The answer is `500 {"error":"WORKFLOW_ERROR"}`, and the app logs a warning that ends with `orchestration has not yet completed`. The jump is still `RUNNING`.
+
+**Terminate.** Start a second jump, `jump-002`, and terminate it. The status becomes `TERMINATED` and no more legs are logged:
+
+```bash
+curl -s -X POST http://localhost:5301/jumps -H 'Content-Type: application/json' -d '{"jumpId": "jump-002"}'
+curl -s -X POST http://localhost:5301/jumps/jump-002/terminate
+curl -s http://localhost:5301/jumps/jump-002
+```
+
+```json
+{"jumpId":"jump-002","status":"TERMINATED","output":null}
+```
+
+Pausing `jump-002` now answers `409 {"error":"JUMP_FINISHED"}`, and `GET` still answers.
+
+**Purge.** A terminated jump is finished, so it can be purged. The answer is `204`, and the history is gone:
+
+```bash
+curl -s -X DELETE http://localhost:5301/jumps/jump-002
+curl -s http://localhost:5301/jumps/jump-002
+```
+
+```json
+{"error":"JUMP_NOT_FOUND"}
+```
+
+**The same from the command line.** The endpoints only wrap what the Dapr CLI already does. With the demo running, these commands act on the same workflows:
+
+```bash
+dapr workflow list -a engineering
+dapr workflow suspend jump-001 -a engineering
+dapr workflow resume jump-001 -a engineering
+dapr workflow terminate jump-001 -a engineering
+dapr workflow purge jump-001 -a engineering
+```
+
+The [Dapr Dev Dashboard](https://docs.diagrid.io/develop/local-development/dev-dashboard/), a local dev tool, lists the same `LongRangeJumpWorkflow` runs and their status.
+
+**Clean up.** Terminate `jump-001`, then purge it (the same as the CLI commands above, or the two endpoints):
+
+```bash
+curl -s -X POST http://localhost:5301/jumps/jump-001/terminate
+curl -s -X DELETE http://localhost:5301/jumps/jump-001
+```
+
+Terminate is asynchronous. If the purge answers `500`, check that `jump-001` is `TERMINATED` and try again.
+
 ## Smoke tests
 
 `tests/workflow` holds one script per demo. They start the demo, drive it with `curl`, check the logs and the workflow output, and stop it again. Each test uses fresh jump IDs and terminates and purges its jumps before it stops the demo, so Redis is left clean.
@@ -433,3 +530,5 @@ The Demo 3 test checks that all five sensor arrays log their hazard score, that 
 The Demo 4 test stops the demo during the timer wait after check 2, starts it again and checks that the monitor completes, that checks 1 to 5 are each logged exactly once across the restart, that the status is `RUNNING` the whole time and that the output is `{"stable":true,"checks":5,"coreTempK":1000}`.
 
 The Demo 5 test starts three jumps. It approves one, denies one and leaves one unanswered, and checks the three outputs (`JUMPED`, `DENIED`, `ABORTED_NO_AUTHORIZATION`), that the denied jump doesn't engage and that each jump logs the awaiting line exactly once. It also checks that authorizing an unknown jump answers 404 and that authorizing the timed-out jump answers 409 and leaves its output unchanged. The timeout path makes the test take about a minute per language.
+
+The Demo 6 test pauses a jump, checks that it is `SUSPENDED` and logs no legs for 12 seconds, resumes it and checks that the next leg follows. It purges the running jump and expects `500` with the jump still `RUNNING`. It terminates a second jump, checks that no legs follow and that pause answers `409` while `GET` still answers, purges it (`204`, then `404`), and checks that pause, resume, terminate and purge on an unknown jump answer `404`.
