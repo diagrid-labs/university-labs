@@ -15,6 +15,7 @@ Learners read this code, so clarity matters more than cleverness. Every demo mus
 | `dapr-101/` | The introductory track: service invocation and pub/sub per language, plus a sidecar-only state management lab |
 | `secrets/`, `pubsub/`, `bindings/` | Building-block deep-dive tracks, each in .NET, Python and Java |
 | `workflow/` | The Dapr Workflow 101 track, in .NET, Python, Java and TypeScript |
+| `workflow-aspire/` | Empty workspace for the Aspire track. Learners create `MeridianDiagnostics` here, so no code is committed |
 | `deepagents/`, `langgraph/`, `MAF/` | AI agent tracks: one app per framework, made durable with Dapr Workflow |
 | `tests/<track>/` | Smoke tests for the building-block tracks (`run-all.sh`, `smoke-demoN.sh`, `lib.sh`, and a script that starts the track's container) |
 | `docs/superpowers/` | Design specs, implementation plans and research notes per track |
